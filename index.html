@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>농산물 판매 확인서</title>
 
+<!-- 사진 저장용 html2canvas -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
@@ -72,13 +73,14 @@
         border:1px solid #ccc;
         background:#fff;
         margin-top:6px;
+        margin-bottom: 4px;
     }
 
     .footer-line {
-        margin-top:40px;
-        text-align:center;
+        margin-top:10px;
         font-weight:bold;
         font-size:16px;
+        text-align:center;
     }
 
     #buttons {
@@ -106,16 +108,19 @@
         }
     }
 
+    /* 인쇄 최적화 */
     @media print {
-        body {
-            background:white;
+        body, .container {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
         }
         .input-box,
         #buttons {
-            display:none;
+            display:none !important;
         }
-        .container {
-            display:block;
+        .preview {
+            padding-bottom:0 !important;
         }
     }
 </style>
@@ -124,7 +129,7 @@
 <body>
 
 <div class="container">
-    <!-- LEFT: 입력 -->
+    <!-- LEFT SIDE: 입력 폼 -->
     <div class="box input-box">
         <h2>입력 폼</h2>
 
@@ -146,7 +151,7 @@
         <button onclick="clearPcSign()">서명 지우기</button>
     </div>
 
-    <!-- RIGHT: 미리보기 -->
+    <!-- RIGHT SIDE: 미리보기 -->
     <div class="box preview" id="printArea">
         <div class="title">농산물 판매 확인서</div>
 
@@ -162,7 +167,7 @@
         <p>* 주민등록번호 : <span id="pv_rrn"></span></p>
         <p>* 농업경영체등록번호 : <span id="pv_farmId"></span></p>
 
-        <p style="margin:35px 0; text-align:center;">
+        <p style="margin:30px 0; text-align:center;">
             위와 같이 판매하였음을 확인합니다.
         </p>
 
@@ -173,6 +178,7 @@
     </div>
 </div>
 
+<!-- BUTTONS -->
 <div id="buttons">
     <button onclick="saveImage()">사진 저장</button>
     <button onclick="window.print()">인쇄하기</button>
@@ -180,7 +186,7 @@
 </div>
 
 <script>
-/* 입력 → 미리보기 연결 */
+/* 입력값 → 미리보기 실시간 반영 */
 const fields = [
     "item","origin","year","qty",
     "unitPrice","amount","bank","phone",
@@ -191,18 +197,25 @@ fields.forEach(id => {
     const input = document.getElementById(id);
     input.addEventListener("input", () => {
         document.getElementById("pv_" + id).innerText = input.value;
-        localStorage.setItem("farm_temp_data", JSON.stringify(readInputs()));
+        saveTemp();
     });
 });
 
-/* 현재 입력값을 JSON으로 수집 */
-function readInputs(){
-    const obj = {};
-    fields.forEach(id => obj[id] = document.getElementById(id).value || "");
-    return obj;
+/* 현재 입력값 저장 */
+function saveTemp(){
+    const data = {};
+    fields.forEach(id => data[id] = document.getElementById(id).value);
+    localStorage.setItem("farm_temp_data", JSON.stringify(data));
 }
 
-/* PC 서명 */
+/* 현재 입력값 읽기 */
+function getInputs(){
+    const data = {};
+    fields.forEach(id => data[id] = document.getElementById(id).value);
+    return data;
+}
+
+/* PC 서명 캔버스 */
 const pcCanvas = document.getElementById("pcSignCanvas");
 const pcCtx = pcCanvas.getContext("2d");
 let drawing = false;
@@ -215,21 +228,21 @@ function resizePcCanvas(){
 resizePcCanvas();
 window.addEventListener("resize", resizePcCanvas);
 
-function getPos(e){
-    const rect = pcCanvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+function pos(e){
+    const r = pcCanvas.getBoundingClientRect();
+    return {x: e.clientX - r.left, y: e.clientY - r.top};
 }
 
-pcCanvas.addEventListener("pointerdown", e=>{
+pcCanvas.addEventListener("pointerdown",e=>{
     drawing = true;
-    const p = getPos(e);
+    const p = pos(e);
     pcCtx.beginPath();
     pcCtx.moveTo(p.x,p.y);
 });
 
-pcCanvas.addEventListener("pointermove", e=>{
+pcCanvas.addEventListener("pointermove",e=>{
     if(!drawing) return;
-    const p = getPos(e);
+    const p = pos(e);
     pcCtx.lineWidth=2;
     pcCtx.lineCap="round";
     pcCtx.strokeStyle="black";
@@ -238,9 +251,8 @@ pcCanvas.addEventListener("pointermove", e=>{
     pcCtx.beginPath();
     pcCtx.moveTo(p.x,p.y);
 
-    // 미리보기 이미지 업데이트
-    document.getElementById("signPreview").src =
-        pcCanvas.toDataURL("image/png");
+    document.getElementById("signPreview").src = pcCanvas.toDataURL();
+    localStorage.setItem("farm_temp_sign", pcCanvas.toDataURL());
 });
 
 pcCanvas.addEventListener("pointerup",()=>drawing=false);
@@ -254,39 +266,35 @@ function clearPcSign(){
 
 /* 서명 받기 URL 생성 */
 function goSign(){
-    const data = readInputs();
+    const data = getInputs();
     localStorage.setItem("farm_temp_data", JSON.stringify(data));
 
-    const base = window.location.origin + "/sign.html";
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-    const url = `${base}?data=${encodeURIComponent(encoded)}`;
+    const url = window.location.origin + "/sign.html?data=" + encodeURIComponent(encoded);
 
     navigator.clipboard.writeText(url)
         .then(()=>alert("서명용 URL이 복사되었습니다!"))
-        .catch(()=>alert("복사 실패. 직접 복사해 주세요.\n"+url));
+        .catch(()=>alert("복사 실패. 직접 복사해주세요.\n"+url));
 }
 
 /* 사진 저장 */
 async function saveImage(){
     const area = document.getElementById("printArea");
     const canvas = await html2canvas(area,{scale:2});
-    const dataURL = canvas.toDataURL("image/png");
-
     const link = document.createElement("a");
-    link.href = dataURL;
-    link.download="농산물_판매_확인서.png";
+    link.href = canvas.toDataURL();
+    link.download = "농산물_판매_확인서.png";
     link.click();
 }
 
-/* 자동 복원 (A 방식) */
-(function autoRestore(){
+/* sign.html → index.html 복귀 후 자동 복원 */
+(function restore(){
     const params = new URLSearchParams(window.location.search);
 
-    // 서명 완료 후 sign.html에서 돌아온 경우
     if(params.get("done")){
-        const dataStr = localStorage.getItem("farm_temp_data");
-        if(dataStr){
-            const data = JSON.parse(dataStr);
+        const saved = localStorage.getItem("farm_temp_data");
+        if(saved){
+            const data = JSON.parse(saved);
             fields.forEach(id=>{
                 document.getElementById(id).value = data[id] || "";
                 document.getElementById("pv_"+id).innerText = data[id] || "";
