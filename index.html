@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>농산물 판매 확인서</title>
 
-<!-- 사진 저장용 html2canvas -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
@@ -29,8 +28,7 @@
         box-sizing:border-box;
     }
     .input-box h2 {
-        margin-top:0;
-        margin-bottom:20px;
+        margin:0 0 20px 0;
     }
     .input-box label {
         display:block;
@@ -55,14 +53,12 @@
         background:#fff;
         margin-top:8px;
         touch-action:none;
-        box-sizing:border-box;
     }
 
     .title {
         text-align:center;
         font-size:22px;
         font-weight:bold;
-        margin-top:0;
         margin-bottom:25px;
     }
     .preview p {
@@ -75,7 +71,6 @@
         height:120px;
         border:1px solid #ccc;
         background:#fff;
-        display:block;
         margin-top:6px;
     }
 
@@ -129,7 +124,7 @@
 <body>
 
 <div class="container">
-    <!-- LEFT: 입력 폼 -->
+    <!-- LEFT: 입력 -->
     <div class="box input-box">
         <h2>입력 폼</h2>
 
@@ -148,7 +143,7 @@
 
         <h3 style="margin-top:25px;">PC 서명</h3>
         <canvas id="pcSignCanvas"></canvas>
-        <button style="margin-top:8px;" onclick="clearPcSign()">서명 지우기</button>
+        <button onclick="clearPcSign()">서명 지우기</button>
     </div>
 
     <!-- RIGHT: 미리보기 -->
@@ -181,33 +176,33 @@
 <div id="buttons">
     <button onclick="saveImage()">사진 저장</button>
     <button onclick="window.print()">인쇄하기</button>
-    <button class="blue-btn" onclick="createSignURL()">서명 받기 URL 복사</button>
+    <button class="blue-btn" onclick="goSign()">서명 받기 URL 복사</button>
 </div>
 
 <script>
-/* Base64 safe helpers */
-function encodeBase64(str){
-    return btoa(unescape(encodeURIComponent(str)));
-}
-function decodeBase64(str){
-    return decodeURIComponent(escape(atob(str)));
-}
-
 /* 입력 → 미리보기 연결 */
 const fields = [
-  "item","origin","year","qty",
-  "unitPrice","amount","bank","phone",
-  "name","rrn","farmId","date"
+    "item","origin","year","qty",
+    "unitPrice","amount","bank","phone",
+    "name","rrn","farmId","date"
 ];
 
 fields.forEach(id => {
     const input = document.getElementById(id);
     input.addEventListener("input", () => {
         document.getElementById("pv_" + id).innerText = input.value;
+        localStorage.setItem("farm_temp_data", JSON.stringify(readInputs()));
     });
 });
 
-/* PC 서명 캔버스 (입력 전용) */
+/* 현재 입력값을 JSON으로 수집 */
+function readInputs(){
+    const obj = {};
+    fields.forEach(id => obj[id] = document.getElementById(id).value || "");
+    return obj;
+}
+
+/* PC 서명 */
 const pcCanvas = document.getElementById("pcSignCanvas");
 const pcCtx = pcCanvas.getContext("2d");
 let drawing = false;
@@ -225,97 +220,83 @@ function getPos(e){
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
-pcCanvas.addEventListener("pointerdown", e => {
+pcCanvas.addEventListener("pointerdown", e=>{
     drawing = true;
     const p = getPos(e);
     pcCtx.beginPath();
-    pcCtx.moveTo(p.x, p.y);
+    pcCtx.moveTo(p.x,p.y);
 });
 
-pcCanvas.addEventListener("pointermove", e => {
-    if (!drawing) return;
+pcCanvas.addEventListener("pointermove", e=>{
+    if(!drawing) return;
     const p = getPos(e);
-    pcCtx.lineWidth = 2;
-    pcCtx.lineCap = "round";
-    pcCtx.strokeStyle = "black";
-    pcCtx.lineTo(p.x, p.y);
+    pcCtx.lineWidth=2;
+    pcCtx.lineCap="round";
+    pcCtx.strokeStyle="black";
+    pcCtx.lineTo(p.x,p.y);
     pcCtx.stroke();
     pcCtx.beginPath();
-    pcCtx.moveTo(p.x, p.y);
+    pcCtx.moveTo(p.x,p.y);
 
-    // 캔버스에서 그린 서명을 미리보기 이미지로 표시
-    document.getElementById("signPreview").src = pcCanvas.toDataURL("image/png");
+    // 미리보기 이미지 업데이트
+    document.getElementById("signPreview").src =
+        pcCanvas.toDataURL("image/png");
 });
 
-pcCanvas.addEventListener("pointerup", () => drawing = false);
-pcCanvas.addEventListener("pointerleave", () => drawing = false);
+pcCanvas.addEventListener("pointerup",()=>drawing=false);
+pcCanvas.addEventListener("pointerleave",()=>drawing=false);
 
 function clearPcSign(){
-    pcCtx.clearRect(0, 0, pcCanvas.width, pcCanvas.height);
+    pcCtx.clearRect(0,0,pcCanvas.width,pcCanvas.height);
     document.getElementById("signPreview").src = "";
+    localStorage.removeItem("farm_temp_sign");
 }
 
 /* 서명 받기 URL 생성 */
-function createSignURL(){
-    const data = {};
-    fields.forEach(id => {
-        data[id] = document.getElementById(id).value || "";
-    });
+function goSign(){
+    const data = readInputs();
+    localStorage.setItem("farm_temp_data", JSON.stringify(data));
 
-    const encoded = encodeBase64(JSON.stringify(data));
     const base = window.location.origin + "/sign.html";
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
     const url = `${base}?data=${encodeURIComponent(encoded)}`;
 
     navigator.clipboard.writeText(url)
-        .then(() => alert("서명용 URL이 복사되었습니다!"))
-        .catch(() => alert("클립보드 복사에 실패했습니다. URL을 직접 복사해 주세요.\n" + url));
+        .then(()=>alert("서명용 URL이 복사되었습니다!"))
+        .catch(()=>alert("복사 실패. 직접 복사해 주세요.\n"+url));
 }
 
-/* 사진 저장 (미리보기 영역을 PNG로 저장) */
+/* 사진 저장 */
 async function saveImage(){
     const area = document.getElementById("printArea");
-    const canvas = await html2canvas(area, { scale: 2 });
+    const canvas = await html2canvas(area,{scale:2});
     const dataURL = canvas.toDataURL("image/png");
 
     const link = document.createElement("a");
     link.href = dataURL;
-    link.download = "농산물_판매_확인서.png";
-
-    // 일부 모바일 브라우저 대응
-    if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
-        window.open(dataURL);
-    } else {
-        link.click();
-    }
+    link.download="농산물_판매_확인서.png";
+    link.click();
 }
 
-/* 모바일에서 서명한 결과(pack)를 복원 */
-(function restoreFromPack(){
+/* 자동 복원 (A 방식) */
+(function autoRestore(){
     const params = new URLSearchParams(window.location.search);
-    const packRaw = params.get("pack");
-    if (!packRaw) return;
 
-    try {
-        const jsonStr = decodeBase64(decodeURIComponent(packRaw));
-        const pack = JSON.parse(jsonStr);
+    // 서명 완료 후 sign.html에서 돌아온 경우
+    if(params.get("done")){
+        const dataStr = localStorage.getItem("farm_temp_data");
+        if(dataStr){
+            const data = JSON.parse(dataStr);
+            fields.forEach(id=>{
+                document.getElementById(id).value = data[id] || "";
+                document.getElementById("pv_"+id).innerText = data[id] || "";
+            });
+        }
 
-        const data = pack.data || {};
-        const sign = pack.sign || "";
-
-        // 입력값 & 미리보기 복원
-        fields.forEach(id => {
-            if (data[id] !== undefined) {
-                document.getElementById(id).value = data[id];
-                document.getElementById("pv_" + id).innerText = data[id];
-            }
-        });
-
-        // 서명 이미지 복원 (PC용 캔버스는 굳이 복원하지 않고 미리보기만 복원)
-        if (sign) {
+        const sign = localStorage.getItem("farm_temp_sign");
+        if(sign){
             document.getElementById("signPreview").src = sign;
         }
-    } catch (e) {
-        console.error("pack decode error", e);
     }
 })();
 </script>

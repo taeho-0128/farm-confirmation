@@ -6,67 +6,16 @@
 <title>서명 입력</title>
 
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        background:#f5f5f5;
-        margin:0;
-        padding:20px;
-    }
-    .box {
-        max-width:600px;
-        margin:0 auto;
-        background:white;
-        border-radius:10px;
-        padding:20px;
-        box-sizing:border-box;
-    }
-    .title {
-        text-align:center;
-        font-size:22px;
-        font-weight:bold;
-        margin-top:0;
-        margin-bottom:20px;
-    }
-    .info-line {
-        font-size:15px;
-        margin:6px 0;
-    }
-    h3 {
-        margin-top:25px;
-        margin-bottom:8px;
-    }
-    #signCanvas {
-        width:100%;
-        height:220px;
-        border:1px solid #aaa;
-        background:#fff;
-        touch-action:none;
-        box-sizing:border-box;
-    }
-    button {
-        width:100%;
-        padding:12px;
-        margin-top:12px;
-        border-radius:6px;
-        border:none;
-        font-size:16px;
-        cursor:pointer;
-    }
-    .blue-btn {
-        background:#3b82f6;
-        color:white;
-    }
-    .gray-btn {
-        background:#e5e7eb;
-        color:#111827;
-    }
-    #msg {
-        margin-top:10px;
-        text-align:center;
-        font-size:15px;
-        color:green;
-        font-weight:bold;
-    }
+    body{font-family:Arial;background:#f5f5f5;margin:0;padding:20px;}
+    .box{max-width:600px;margin:0 auto;background:white;padding:20px;border-radius:10px;}
+    .title{text-align:center;font-size:22px;font-weight:bold;margin:0 0 20px 0;}
+    h3{margin-top:25px;}
+    #signCanvas{width:100%;height:220px;border:1px solid #aaa;background:#fff;touch-action:none;}
+    button{width:100%;padding:12px;margin-top:12px;border-radius:6px;border:none;font-size:16px;cursor:pointer;}
+    .blue-btn{background:#3b82f6;color:white;}
+    .gray-btn{background:#e5e7eb;color:#111;}
+    .info-line{margin:6px 0;font-size:15px;}
+    #msg{margin-top:10px;color:green;font-weight:bold;text-align:center;}
 </style>
 </head>
 
@@ -87,121 +36,91 @@
 </div>
 
 <script>
-/* Base64 safe helpers */
-function encodeBase64(str){
-    return btoa(unescape(encodeURIComponent(str)));
-}
-function decodeBase64(str){
-    return decodeURIComponent(escape(atob(str)));
+function decode(str){
+    return JSON.parse(decodeURIComponent(escape(atob(str))));
 }
 
-/* 한글 라벨 매핑 (index와 동일 키) */
-const labels = {
-    item: "품목",
-    origin: "원산지",
-    year: "생산년도",
-    qty: "판매량",
-    unitPrice: "판매단가",
-    amount: "금액",
-    bank: "입금계좌번호",
-    phone: "연락처",
-    name: "성명",
-    rrn: "주민등록번호",
-    farmId: "농업경영체등록번호",
-    date: "날짜"
-};
-
+/* 데이터 표시 */
 let formData = {};
+(function loadData(){
+    const p = new URLSearchParams(window.location.search);
+    const raw = p.get("data");
+    if(!raw) return;
+    formData = decode(raw);
 
-/* URL에서 data 파라미터 읽기 */
-(function readDataFromURL(){
-    const params = new URLSearchParams(window.location.search);
-    const dataRaw = params.get("data");
-    if (!dataRaw) return;
-
-    try {
-        const jsonStr = decodeBase64(decodeURIComponent(dataRaw));
-        formData = JSON.parse(jsonStr) || {};
-    } catch (e) {
-        console.error("data decode error", e);
-        formData = {};
-    }
-
-    const infoArea = document.getElementById("infoArea");
-    let html = "";
-    for (const key in formData) {
-        const label = labels[key] || key;
-        const value = formData[key];
-        html += `<div class="info-line">* ${label} : ${value}</div>`;
-    }
-    infoArea.innerHTML = html;
-})();
-
-/* 모바일 서명 캔버스 */
-const canvas = document.getElementById("signCanvas");
-const ctx = canvas.getContext("2d");
-let drawing = false;
-
-function resizeCanvas(){
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-}
-resizeCanvas();
-window.addEventListener("resize", resizeCanvas);
-
-function getPos(e){
-    const rect = canvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-}
-
-canvas.addEventListener("pointerdown", e => {
-    drawing = true;
-    const p = getPos(e);
-    ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-});
-
-canvas.addEventListener("pointermove", e => {
-    if (!drawing) return;
-    const p = getPos(e);
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "black";
-    ctx.lineTo(p.x, p.y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-});
-
-canvas.addEventListener("pointerup", () => drawing = false);
-canvas.addEventListener("pointerleave", () => drawing = false);
-
-function clearMobileSign(){
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
-
-/* 서명 완료 → pack 생성 → index.html URL 복사 */
-function submitSign(){
-    const signDataURL = canvas.toDataURL("image/png");
-
-    const pack = {
-        data: formData,
-        sign: signDataURL
+    const area = document.getElementById("infoArea");
+    let html="";
+    const labels={
+        item:"품목",origin:"원산지",year:"생산년도",qty:"판매량",unitPrice:"판매단가",
+        amount:"금액",bank:"입금계좌번호",phone:"연락처",name:"성명",
+        rrn:"주민등록번호",farmId:"농업경영체등록번호",date:"날짜"
     };
 
-    const encoded = encodeBase64(JSON.stringify(pack));
-    const base = window.location.origin + "/index.html";
-    const returnURL = `${base}?pack=${encodeURIComponent(encoded)}`;
+    for(const k in formData){
+        html += `<div class="info-line">* ${labels[k] || k} : ${formData[k]}</div>`;
+    }
+    area.innerHTML = html;
+})();
 
-    navigator.clipboard.writeText(returnURL)
-        .then(() => {
+/* 캔버스 */
+const c = document.getElementById("signCanvas");
+const ctx = c.getContext("2d");
+let drawing=false;
+
+function resize(){
+    const r = c.getBoundingClientRect();
+    c.width = r.width;
+    c.height = r.height;
+}
+resize();
+window.addEventListener("resize",resize);
+
+function pos(e){
+    const r = c.getBoundingClientRect();
+    return {x: e.clientX - r.left, y:e.clientY - r.top};
+}
+
+c.addEventListener("pointerdown", e=>{
+    drawing=true;
+    const p=pos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x,p.y);
+});
+c.addEventListener("pointermove", e=>{
+    if(!drawing) return;
+    const p=pos(e);
+    ctx.lineWidth=2;
+    ctx.lineCap="round";
+    ctx.strokeStyle="black";
+    ctx.lineTo(p.x,p.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(p.x,p.y);
+});
+c.addEventListener("pointerup",()=>drawing=false);
+c.addEventListener("pointerleave",()=>drawing=false);
+
+function clearMobileSign(){
+    ctx.clearRect(0,0,c.width,c.height);
+}
+
+/* 서명 완료 */
+function submitSign(){
+    const sign = c.toDataURL("image/png");
+
+    localStorage.setItem("farm_temp_sign", sign);
+    localStorage.setItem("farm_temp_data", JSON.stringify(formData));
+
+    const backURL = window.location.origin + "/index.html?done=1";
+
+    navigator.clipboard.writeText(backURL)
+        .then(()=>{
             document.getElementById("msg").innerText =
-                "서명 완료 후 URL이 복사되었습니다. PC에서 붙여넣기 해 주세요.";
+                "서명 완료! 이제 PC에서 index.html을 여시면 자동으로 복원됩니다.";
         })
-        .catch(() => {
+        .catch(()=>{
             document.getElementById("msg").innerText =
-                "클립보드 복사에 실패했습니다. 주소창의 URL을 직접 복사해 주세요.";
+                "복사 실패. 주소창 URL을 직접 복사해 주세요.";
         });
 }
 </script>
