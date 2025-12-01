@@ -51,7 +51,7 @@
     }
     #buttons {
         margin-top:20px;
-        text-align:center; /* 가운데 정렬 */
+        text-align:center;
     }
     button {
         padding:12px 16px;
@@ -60,7 +60,7 @@
         border:1px solid #ccc;
         background:white;
         cursor:pointer;
-        margin-right:10px;
+        margin:0 6px;
     }
     .blue-btn {
         background:#3b82f6;
@@ -79,10 +79,9 @@
 
 <div class="container">
 
-    <!-- LEFT: 입력 영역 -->
+    <!-- LEFT -->
     <div class="box input-box">
         <h2>입력 폼</h2>
-
         <label>품목</label><input id="item">
         <label>원산지</label><input id="origin">
         <label>생산년도</label><input id="year">
@@ -97,7 +96,7 @@
         <label>날짜</label><input id="date">
     </div>
 
-    <!-- RIGHT: 미리보기 -->
+    <!-- RIGHT -->
     <div class="box preview" id="printArea">
         <div class="title">농산물 판매 확인서</div>
 
@@ -124,23 +123,21 @@
 
 </div>
 
-<!-- Buttons -->
 <div id="buttons">
     <button onclick="window.print()">인쇄하기</button>
     <button class="blue-btn" onclick="createSignURL()">서명 받기 URL 복사</button>
 </div>
 
 <script>
-    /* 안전한 Base64 인코딩/디코딩 */
+    // UTF-8 safe Base64
     function encodeBase64(str) {
         return btoa(unescape(encodeURIComponent(str)));
     }
-    function decodeBase64(str) {
-        return decodeURIComponent(escape(atob(str)));
-    }
 
-    /* 실시간 미리보기 */
-    const fields = ["item","origin","year","qty","unitPrice","amount","bank","phone","name","rrn","farmId","date"];
+    const fields = ["item","origin","year","qty","unitPrice","amount",
+                    "bank","phone","name","rrn","farmId","date"];
+
+    // 미리보기 반영
     fields.forEach(id => {
         document.getElementById(id).addEventListener("input", () => {
             document.getElementById("pv_" + id).innerText =
@@ -148,13 +145,14 @@
         });
     });
 
-    /* URL 생성 + 클립보드 복사 */
+    // 서명 URL 생성 (URL-safe 인코딩)
     function createSignURL() {
         const data = {};
         fields.forEach(id => data[id] = document.getElementById(id).value);
 
-        const encoded = encodeBase64(JSON.stringify(data));
-        const url = `https://farm-confirmation-qwe.vercel.app/sign.html?data=${encoded}`;
+        const encodedJson = encodeBase64(JSON.stringify(data));
+        const urlParam = encodeURIComponent(encodedJson);   // URL-safe
+        const url = `https://farm-confirmation-qwe.vercel.app/sign.html?data=${urlParam}`;
 
         navigator.clipboard.writeText(url).then(() => {
             alert("서명 URL이 복사되었습니다!");
@@ -169,7 +167,7 @@
         });
     }
 
-    /* sign.html에서 돌아온 서명 표시 */
+    // sign.html에서 돌아온 서명 표시
     const urlParams = new URLSearchParams(location.search);
     const sign = urlParams.get("sign");
     if (sign) {

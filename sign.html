@@ -25,17 +25,28 @@
         height:150px;
         background:white;
         border:1px solid #aaa;
+        touch-action: none; /* 모바일 스크롤 방지 */
     }
-    button {
+    .btn-row {
+        display:flex;
+        gap:10px;
         margin-top:20px;
-        width:100%;
-        background:#2563eb;
-        color:white;
-        border:none;
+    }
+    .btn-row button {
+        flex:1;
         padding:14px;
         border-radius:8px;
-        font-size:17px;
+        font-size:16px;
         cursor:pointer;
+        border:none;
+    }
+    .btn-primary {
+        background:#2563eb;
+        color:white;
+    }
+    .btn-secondary {
+        background:#e5e7eb;
+        color:#111827;
     }
 </style>
 </head>
@@ -52,60 +63,82 @@
     <h3 style="margin-top:30px;">서명</h3>
     <canvas id="signaturePad"></canvas>
 
-    <button onclick="saveSign()">서명 완료</button>
+    <div class="btn-row">
+        <button class="btn-secondary" onclick="clearSign()">서명 지우기</button>
+        <button class="btn-primary" onclick="saveSign()">서명 완료</button>
+    </div>
 </div>
 
 <script>
-    /* 안전 Base64 decode */
+    // UTF-8 safe Base64 decode
     function decodeBase64(str) {
         return decodeURIComponent(escape(atob(str)));
     }
 
-    /* 데이터 파싱 */
+    // data 파라미터 읽기 (URL-safe 디코딩)
     const params = new URLSearchParams(location.search);
-    const encoded = params.get("data");
-    const data = JSON.parse(decodeBase64(encoded));
+    const rawParam = params.get("data");
+    let data = {};
 
-    document.getElementById("info").innerHTML = `
-        <p>* 품목 : ${data.item}</p>
-        <p>* 원산지 : ${data.origin}</p>
-        <p>* 생산년도 : ${data.year}</p>
-        <p>* 판매량 : ${data.qty}</p>
-        <p>* 판매단가 : ${data.unitPrice}</p>
-        <p>* 금액 : ${data.amount}</p>
-        <p>* 입금계좌번호 : ${data.bank}</p>
-        <p>* 연락처 : ${data.phone}</p>
-        <p>* 성명 : ${data.name}</p>
-        <p>* 주민등록번호 : ${data.rrn}</p>
-        <p>* 농업경영체등록번호 : ${data.farmId}</p>
-    `;
-    document.getElementById("pv_date").innerText = data.date;
+    try {
+        const base64 = decodeURIComponent(rawParam); // URL 디코딩
+        const jsonStr = decodeBase64(base64);
+        data = JSON.parse(jsonStr);
+    } catch (e) {
+        alert("데이터를 불러오지 못했습니다. PC에서 URL을 다시 생성해 주세요.");
+        console.error(e);
+    }
 
-    /* 서명 캔버스 */
+    if (data) {
+        document.getElementById("info").innerHTML = `
+            <p>* 품목 : ${data.item}</p>
+            <p>* 원산지 : ${data.origin}</p>
+            <p>* 생산년도 : ${data.year}</p>
+            <p>* 판매량 : ${data.qty}</p>
+            <p>* 판매단가 : ${data.unitPrice}</p>
+            <p>* 금액 : ${data.amount}</p>
+            <p>* 입금계좌번호 : ${data.bank}</p>
+            <p>* 연락처 : ${data.phone}</p>
+            <p>* 성명 : ${data.name}</p>
+            <p>* 주민등록번호 : ${data.rrn}</p>
+            <p>* 농업경영체등록번호 : ${data.farmId}</p>
+        `;
+        document.getElementById("pv_date").innerText = data.date || "";
+    }
+
+    // ==== 서명 캔버스 (모바일 & PC 공통) ====
     const canvas = document.getElementById("signaturePad");
     const ctx = canvas.getContext("2d");
     let drawing = false;
 
-    function pos(e) {
-        const r = canvas.getBoundingClientRect();
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+    }
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
         return {
-            x: (e.touches ? e.touches[0].clientX : e.clientX) - r.left,
-            y: (e.touches ? e.touches[0].clientY : e.clientY) - r.top
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
         };
     }
 
-    canvas.onmousedown = () => drawing = true;
-    canvas.onmouseup = () => { drawing = false; ctx.beginPath(); };
-    canvas.onmousemove = draw;
+    function pointerDown(e) {
+        e.preventDefault();
+        drawing = true;
+        const p = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+    }
 
-    canvas.ontouchstart = () => drawing = true;
-    canvas.ontouchend = () => { drawing = false; ctx.beginPath(); };
-    canvas.ontouchmove = draw;
-
-    function draw(e) {
+    function pointerMove(e) {
         if (!drawing) return;
         e.preventDefault();
-        const p = pos(e);
+        const p = getPos(e);
         ctx.lineWidth = 2;
         ctx.lineCap = "round";
         ctx.strokeStyle = "black";
@@ -115,13 +148,29 @@
         ctx.moveTo(p.x, p.y);
     }
 
-    /* 서명 완료 → index.html 리다이렉트 */
+    function pointerUp(e) {
+        if (!drawing) return;
+        e.preventDefault();
+        drawing = false;
+        ctx.beginPath();
+    }
+
+    canvas.addEventListener("pointerdown", pointerDown);
+    canvas.addEventListener("pointermove", pointerMove);
+    canvas.addEventListener("pointerup", pointerUp);
+    canvas.addEventListener("pointerleave", pointerUp);
+
+    // 서명 지우기
+    function clearSign() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.beginPath();
+    }
+
+    // 서명 완료 → index.html로 리다이렉트
     function saveSign() {
         const signature = canvas.toDataURL("image/png");
-
         const redirectURL =
-          `https://farm-confirmation-qwe.vercel.app/index.html?data=${encoded}&sign=${encodeURIComponent(signature)}`;
-
+          `https://farm-confirmation-qwe.vercel.app/index.html?data=${rawParam}&sign=${encodeURIComponent(signature)}`;
         window.location.href = redirectURL;
     }
 </script>
