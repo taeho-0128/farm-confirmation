@@ -6,7 +6,11 @@
 <title>서명 입력</title>
 
 <style>
-    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:20px; }
+    body {
+        font-family: Arial, sans-serif;
+        background:#f5f5f5;
+        padding:20px;
+    }
     .box {
         max-width:600px;
         margin:0 auto;
@@ -15,51 +19,39 @@
         border-radius:10px;
     }
     .title {
-        text-align:center;
         font-size:22px;
+        text-align:center;
         font-weight:bold;
-        margin-bottom:30px;
+        margin-bottom:20px;
     }
-    #signaturePad {
+    .info-line {
+        font-size:15px;
+        margin:6px 0;
+    }
+    #signCanvas {
         width:100%;
-        height:150px;
-        background:white;
+        height:200px;
         border:1px solid #aaa;
-        touch-action: none; /* 모바일에서 스크롤 대신 드로잉 */
+        background:white;
+        margin-top:10px;
+        touch-action:none;
     }
-    .btn-row {
-        display:flex;
-        gap:10px;
+    button {
+        width:100%;
         margin-top:20px;
-    }
-    .btn-row button {
-        flex:1;
         padding:14px;
-        border-radius:8px;
-        font-size:16px;
-        cursor:pointer;
-        border:none;
-    }
-    .btn-primary {
-        background:#2563eb;
+        background:#3b82f6;
         color:white;
-    }
-    .btn-secondary {
-        background:#e5e7eb;
-        color:#111827;
-    }
-    #copyMsg {
-        margin-top:12px;
-        font-size:14px;
-        color:#16a34a;
-        text-align:center;
-        display:none;
-    }
-    .footer-line {
-        margin-top:30px;
-        text-align:center;
-        font-weight:bold;
+        border:none;
+        border-radius:6px;
         font-size:16px;
+    }
+    #msg {
+        color:green;
+        text-align:center;
+        margin-top:10px;
+        font-size:16px;
+        font-weight:bold;
     }
 </style>
 </head>
@@ -69,142 +61,114 @@
 <div class="box">
     <div class="title">농산물 판매 확인서</div>
 
-    <div id="info"></div>
-    <p style="margin:30px 0; text-align:center;">위와 같이 판매하였음을 확인합니다.</p>
-    <p id="pv_date" style="text-align:center;"></p>
-
-    <!-- 하단 회사명 (문서 안) -->
-    <div class="footer-line">
-        농업회사법인(주)원당에프앤디 귀중
-    </div>
+    <div id="infoArea"></div>
 
     <h3 style="margin-top:30px;">서명</h3>
-    <canvas id="signaturePad"></canvas>
+    <canvas id="signCanvas"></canvas>
 
-    <div class="btn-row">
-        <button class="btn-secondary" onclick="clearSign()">서명 지우기</button>
-        <button class="btn-primary" onclick="saveSign()">서명 완료</button>
-    </div>
+    <button onclick="submitSign()">서명 완료</button>
 
-    <p id="copyMsg">서명 완료 후 URL이 복사되었습니다. PC에서 붙여넣어 열어주세요.</p>
+    <div id="msg"></div>
 </div>
 
 <script>
-    // UTF-8 safe Base64 decode
-    function decodeBase64(str) {
-        return decodeURIComponent(escape(atob(str)));
-    }
+/* Base64 Safe Encode/Decode */
+function encodeBase64(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+}
+function decodeBase64(str) {
+    return decodeURIComponent(escape(atob(str)));
+}
 
-    // data 파라미터 읽기 (URL-safe 디코딩)
-    const params = new URLSearchParams(location.search);
-    const rawParam = params.get("data");   // 인코딩된 Base64 (encodeURIComponent 된 상태)
-    let data = {};
+/* 1) URL에서 data 추출 */
+const params = new URLSearchParams(location.search);
+const rawData = params.get("data");
 
+let formData = {};
+
+if (rawData) {
     try {
-        const base64 = decodeURIComponent(rawParam); // URL 디코딩
-        const jsonStr = decodeBase64(base64);
-        data = JSON.parse(jsonStr);
+        const jsonStr = decodeBase64(decodeURIComponent(rawData));
+        formData = JSON.parse(jsonStr);
     } catch (e) {
-        alert("데이터를 불러오지 못했습니다. PC에서 URL을 다시 생성해 주세요.");
-        console.error(e);
+        console.error("decode error", e);
+    }
+}
+
+/* 2) 화면에 기존 입력값 보여주기 */
+function renderInfo() {
+    const infoDiv = document.getElementById("infoArea");
+
+    if (!formData) {
+        infoDiv.innerHTML = "<p>데이터 없음</p>";
+        return;
     }
 
-    if (data) {
-        document.getElementById("info").innerHTML = `
-            <p>* 품목 : ${data.item}</p>
-            <p>* 원산지 : ${data.origin}</p>
-            <p>* 생산년도 : ${data.year}</p>
-            <p>* 판매량 : ${data.qty}</p>
-            <p>* 판매단가 : ${data.unitPrice}</p>
-            <p>* 금액 : ${data.amount}</p>
-            <p>* 입금계좌번호 : ${data.bank}</p>
-            <p>* 연락처 : ${data.phone}</p>
-            <p>* 성명 : ${data.name}</p>
-            <p>* 주민등록번호 : ${data.rrn}</p>
-            <p>* 농업경영체등록번호 : ${data.farmId}</p>
-        `;
-        document.getElementById("pv_date").innerText = data.date || "";
+    let html = "";
+    for (const k in formData) {
+        html += `<div class="info-line">* ${k} : ${formData[k]}</div>`;
     }
+    infoDiv.innerHTML = html;
+}
+renderInfo();
 
-    // ==== 서명 캔버스 (모바일 & PC 공통) ====
-    const canvas = document.getElementById("signaturePad");
-    const ctx = canvas.getContext("2d");
-    let drawing = false;
+/* 3) 서명 캔버스 */
+const canvas = document.getElementById("signCanvas");
+const ctx = canvas.getContext("2d");
+let drawing = false;
 
-    function resizeCanvas() {
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width;
-        canvas.height = rect.height;
-    }
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
+function resizeCanvas() {
+    const r = canvas.getBoundingClientRect();
+    canvas.width = r.width;
+    canvas.height = r.height;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
 
-    function getPos(e) {
-        const rect = canvas.getBoundingClientRect();
-        return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
-    }
+function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
 
-    function pointerDown(e) {
-        e.preventDefault();
-        drawing = true;
-        const p = getPos(e);
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-    }
+canvas.addEventListener("pointerdown", e => {
+    drawing = true;
+    const p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+});
+canvas.addEventListener("pointermove", e => {
+    if (!drawing) return;
+    const p = getPos(e);
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "black";
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+});
+canvas.addEventListener("pointerup", () => drawing = false);
+canvas.addEventListener("pointerleave", () => drawing = false);
 
-    function pointerMove(e) {
-        if (!drawing) return;
-        e.preventDefault();
-        const p = getPos(e);
-        ctx.lineWidth = 2;
-        ctx.lineCap = "round";
-        ctx.strokeStyle = "black";
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-    }
+/* 4) 서명 완료 처리 */
+function submitSign() {
+    const signDataURL = canvas.toDataURL("image/png");
 
-    function pointerUp(e) {
-        if (!drawing) return;
-        e.preventDefault();
-        drawing = false;
-        ctx.beginPath();
-    }
+    // 기존 입력값 + 서명 포함한 최종 패키지 생성
+    const pack = {
+        data: formData,
+        sign: signDataURL
+    };
 
-    canvas.addEventListener("pointerdown", pointerDown);
-    canvas.addEventListener("pointermove", pointerMove);
-    canvas.addEventListener("pointerup", pointerUp);
-    canvas.addEventListener("pointerleave", pointerUp);
+    const encoded = encodeBase64(JSON.stringify(pack));
 
-    // 서명 지우기
-    function clearSign() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.beginPath();
-        document.getElementById("copyMsg").style.display = "none";
-    }
+    const returnURL = `https://farm-confirmation-qwe.vercel.app/index.html?pack=${encodeURIComponent(encoded)}`;
 
-    // 서명 완료 → 서명 포함 index.html URL을 클립보드에 복사
-    function saveSign() {
-        const signature = canvas.toDataURL("image/png");
-        const url =
-          `https://farm-confirmation-qwe.vercel.app/index.html?data=${rawParam}&sign=${encodeURIComponent(signature)}`;
-
-        navigator.clipboard.writeText(url).then(() => {
-            document.getElementById("copyMsg").style.display = "block";
-        }).catch(() => {
-            const t = document.createElement("textarea");
-            t.value = url;
-            document.body.appendChild(t);
-            t.select();
-            document.execCommand("copy");
-            t.remove();
-            document.getElementById("copyMsg").style.display = "block";
-        });
-    }
+    navigator.clipboard.writeText(returnURL).then(() => {
+        document.getElementById("msg").innerText =
+            "서명이 완료되었습니다. URL이 복사되었습니다!";
+    });
+}
 </script>
 
 </body>

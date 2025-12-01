@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>농산물 판매 확인서</title>
 
-<!-- 사진 저장 기능용 html2canvas -->
+<!-- 사진 저장 기능 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
@@ -36,14 +36,13 @@
         font-size:15px;
     }
 
-    /* PC 서명 캔버스 */
     #pcSignCanvas {
         width:100%;
         height:150px;
         border:1px solid #aaa;
         background:white;
-        margin-top:8px;
         touch-action:none;
+        margin-top:5px;
     }
 
     .title {
@@ -60,7 +59,6 @@
         width:250px;
         height:120px;
         border:1px solid #ddd;
-        margin-top:5px;
         background:white;
     }
     .footer-line {
@@ -69,18 +67,18 @@
         font-weight:bold;
         font-size:16px;
     }
+
     #buttons {
         margin-top:20px;
         text-align:center;
     }
     button {
         padding:12px 16px;
-        font-size:14px;
+        margin:0 6px;
         border-radius:6px;
         border:1px solid #ccc;
         background:white;
         cursor:pointer;
-        margin:0 6px;
     }
     .blue-btn {
         background:#3b82f6;
@@ -94,17 +92,8 @@
         .container { display:block; }
     }
 
-    /* 반응형: 모바일/태블릿 */
     @media (max-width: 900px) {
-        .container {
-            flex-direction: column;
-        }
-        .box {
-            width: 100%;
-        }
-        #buttons {
-            margin-top: 20px;
-        }
+        .container { flex-direction:column; }
     }
 </style>
 </head>
@@ -113,7 +102,7 @@
 
 <div class="container">
 
-    <!-- LEFT: 입력 폼 -->
+    <!-- LEFT: 입력 -->
     <div class="box input-box">
         <h2>입력 폼</h2>
 
@@ -131,9 +120,10 @@
         <label>날짜</label><input id="date">
 
         <br><br>
+
         <h3>PC 서명</h3>
         <canvas id="pcSignCanvas"></canvas>
-        <button style="margin-top:10px;" onclick="clearPcSign()">서명 지우기</button>
+        <button onclick="clearPcSign()">서명 지우기</button>
     </div>
 
     <!-- RIGHT: 미리보기 -->
@@ -153,22 +143,16 @@
         <p>* 농업경영체등록번호 : <span id="pv_farmId"></span></p>
 
         <div style="margin:40px 0; text-align:center;">위와 같이 판매하였음을 확인합니다.</div>
-        <div style="text-align:right; margin-bottom:30px;">
-            <span id="pv_date"></span>
-        </div>
 
         <p><b>서명</b></p>
-        <img id="signPreview" class="sign-preview" />
+        <img id="signPreview" class="sign-preview">
 
-        <!-- 회사명 -->
-        <div class="footer-line">
-            농업회사법인(주)원당에프앤디 귀중
-        </div>
+        <div class="footer-line">농업회사법인(주)원당에프앤디 귀중</div>
     </div>
 
 </div>
 
-<!-- 버튼 영역 -->
+<!-- BUTTONS -->
 <div id="buttons">
     <button onclick="saveImage()">사진 저장</button>
     <button onclick="window.print()">인쇄하기</button>
@@ -176,22 +160,16 @@
 </div>
 
 <script>
-/* UTF-8 safe Base64 encode/decode */
-function encodeBase64(str) {
-    return btoa(unescape(encodeURIComponent(str)));
-}
-function decodeBase64(str) {
-    return decodeURIComponent(escape(atob(str)));
-}
+/* Base64 안전 처리 */
+function encodeBase64(str){ return btoa(unescape(encodeURIComponent(str))); }
+function decodeBase64(str){ return decodeURIComponent(escape(atob(str))); }
 
-const fields = ["item","origin","year","qty","unitPrice","amount",
-                "bank","phone","name","rrn","farmId","date"];
+const fields = ["item","origin","year","qty","unitPrice","amount","bank","phone","name","rrn","farmId","date"];
 
-/* INPUT → 미리보기 */
-fields.forEach(id => {
-    document.getElementById(id).addEventListener("input", () => {
-        document.getElementById("pv_" + id).innerText =
-            document.getElementById(id).value;
+/* 입력→미리보기 */
+fields.forEach(id=>{
+    document.getElementById(id).addEventListener("input",()=>{
+        document.getElementById("pv_"+id).innerText = document.getElementById(id).value;
     });
 });
 
@@ -200,106 +178,98 @@ const canvas = document.getElementById("pcSignCanvas");
 const ctx = canvas.getContext("2d");
 let drawing = false;
 
-function resizeCanvas() {
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
+function resizeCanvas(){
+    const r = canvas.getBoundingClientRect();
+    canvas.width = r.width;
+    canvas.height = r.height;
 }
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
-function getPos(e) {
-    const rect = canvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+function pos(e){
+    const r = canvas.getBoundingClientRect();
+    return { x:e.clientX-r.left, y:e.clientY-r.top };
 }
 
-canvas.addEventListener("pointerdown", e => {
-    e.preventDefault();
-    drawing = true;
-    const p = getPos(e);
+canvas.addEventListener("pointerdown",e=>{
+    drawing=true;
+    const p=pos(e);
     ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
+    ctx.moveTo(p.x,p.y);
 });
 
-canvas.addEventListener("pointermove", e => {
-    if (!drawing) return;
-    e.preventDefault();
-    const p = getPos(e);
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "black";
-    ctx.lineTo(p.x, p.y);
+canvas.addEventListener("pointermove",e=>{
+    if(!drawing) return;
+    const p=pos(e);
+    ctx.lineWidth=2;
+    ctx.lineCap="round";
+    ctx.strokeStyle="black";
+    ctx.lineTo(p.x,p.y);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-
-    document.getElementById("signPreview").src = canvas.toDataURL("image/png");
+    ctx.moveTo(p.x,p.y);
+    document.getElementById("signPreview").src = canvas.toDataURL();
 });
 
-canvas.addEventListener("pointerup", () => drawing = false);
-canvas.addEventListener("pointerleave", () => drawing = false);
+canvas.addEventListener("pointerup",()=>drawing=false);
+canvas.addEventListener("pointerleave",()=>drawing=false);
 
-/* PC 서명 지우기 */
-function clearPcSign() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    document.getElementById("signPreview").src = "";
+function clearPcSign(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    document.getElementById("signPreview").src="";
 }
 
-/* 모바일 서명받기 URL */
-function createSignURL() {
-    const data = {};
-    fields.forEach(id => data[id] = document.getElementById(id).value);
+/* 서명 URL 생성 */
+function createSignURL(){
+    const data={};
+    fields.forEach(id=>data[id]=document.getElementById(id).value);
 
     const encoded = encodeBase64(JSON.stringify(data));
     const url = `https://farm-confirmation-qwe.vercel.app/sign.html?data=${encodeURIComponent(encoded)}`;
 
-    navigator.clipboard.writeText(url).then(() => {
+    navigator.clipboard.writeText(url).then(()=>{
         alert("서명용 URL이 복사되었습니다!");
     });
 }
 
-/* 사진 저장 기능 */
-async function saveImage() {
-    const area = document.getElementById("printArea");
-    const canvas = await html2canvas(area, { scale: 2 });
-    const dataURL = canvas.toDataURL("image/png");
-
-    const link = document.createElement("a");
-    link.href = dataURL;
-    link.download = "확인서.png";
-
-    // iPhone Safari 처리
-    if (navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome")) {
-        window.open(dataURL);
-    } else {
-        link.click();
-    }
+/* 사진 저장 */
+async function saveImage(){
+    const area=document.getElementById("printArea");
+    const canvas2=await html2canvas(area,{scale:2});
+    const url=canvas2.toDataURL("image/png");
+    const link=document.createElement("a");
+    link.href=url;
+    link.download="확인서.png";
+    link.click();
 }
 
-/* sign.html에서 돌아온 값 반영 */
-(function restore() {
+/* pack 복원 기능 — 여기서 진짜 완성됨 */
+(function restoreFromPack(){
     const params = new URLSearchParams(location.search);
+    const packRaw = params.get("pack");
+    if(!packRaw) return;
 
-    const sign = params.get("sign");
-    if (sign) {
-        document.getElementById("signPreview").src = sign;
-    }
+    try{
+        const packJson = decodeBase64(decodeURIComponent(packRaw));
+        const pack = JSON.parse(packJson);
 
-    const rawData = params.get("data");
-    if (!rawData) return;
+        const data = pack.data;
+        const sign = pack.sign;
 
-    try {
-        const jsonStr = decodeBase64(decodeURIComponent(rawData));
-        const data = JSON.parse(jsonStr);
-
-        fields.forEach(id => {
-            if (data[id]) {
+        // 입력값 복원
+        fields.forEach(id=>{
+            if(data[id]){
                 document.getElementById(id).value = data[id];
-                document.getElementById("pv_" + id).innerText = data[id];
+                document.getElementById("pv_"+id).innerText = data[id];
             }
         });
-    } catch(e) {
-        console.error(e);
+
+        // 서명 복원
+        if(sign){
+            document.getElementById("signPreview").src = sign;
+        }
+    }catch(e){
+        console.error("pack decode error", e);
     }
 })();
 </script>
