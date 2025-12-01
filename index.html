@@ -283,20 +283,28 @@ function createSignURL(){
 /* --- 사진 저장 (미리보기 영역을 PNG로) --- */
 async function saveImage(){
     const area = document.getElementById("printArea");
-    const canvas = await html2canvas(area, { scale: 2 });
+    const canvas = await html2canvas(area, {
+        scale: 2,
+        useCORS: true,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: area.scrollWidth,
+        windowHeight: area.scrollHeight
+    });
+
     const dataURL = canvas.toDataURL("image/png");
 
     const link = document.createElement("a");
     link.href = dataURL;
     link.download = "농산물_판매_확인서.png";
 
-    // iOS Safari 대응
     if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
         window.open(dataURL);
     } else {
         link.click();
     }
 }
+
 
 /* --- 모바일에서 돌아온 URL(pack) 복원 --- */
 (function restoreFromPack(){
