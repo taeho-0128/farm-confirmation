@@ -32,6 +32,17 @@
         border-radius:6px;
         font-size:15px;
     }
+
+    /* 서명 캔버스 스타일 */
+    #pcSignCanvas {
+        width:100%;
+        height:150px;
+        border:1px solid #aaa;
+        background:white;
+        margin-top:8px;
+        touch-action:none;
+    }
+
     .title {
         text-align:center;
         font-size:22px;
@@ -73,6 +84,7 @@
         color:white;
         border:none;
     }
+
     @media print {
         .input-box, #buttons { display:none; }
         body { background:white; }
@@ -88,6 +100,7 @@
     <!-- LEFT: 입력 폼 -->
     <div class="box input-box">
         <h2>입력 폼</h2>
+
         <label>품목</label><input id="item">
         <label>원산지</label><input id="origin">
         <label>생산년도</label><input id="year">
@@ -100,9 +113,14 @@
         <label>주민등록번호</label><input id="rrn">
         <label>농업경영체등록번호</label><input id="farmId">
         <label>날짜</label><input id="date">
+
+        <br><br>
+        <h3>PC 서명</h3>
+        <canvas id="pcSignCanvas"></canvas>
+        <button style="margin-top:10px;" onclick="clearPcSign()">서명 지우기</button>
     </div>
 
-    <!-- RIGHT: 미리보기 / 인쇄 영역 -->
+    <!-- RIGHT: 미리보기 -->
     <div class="box preview" id="printArea">
         <div class="title">농산물 판매 확인서</div>
 
@@ -126,7 +144,7 @@
         <p><b>서명</b></p>
         <img id="signPreview" class="sign-preview" />
 
-        <!-- 하단 회사명 -->
+        <!-- 회사명 -->
         <div class="footer-line">
             농업회사법인(주)원당에프앤디 귀중
         </div>
@@ -134,82 +152,124 @@
 
 </div>
 
+<!-- 버튼 영역 -->
 <div id="buttons">
     <button onclick="window.print()">인쇄하기</button>
     <button class="blue-btn" onclick="createSignURL()">서명 받기 URL 복사</button>
 </div>
 
 <script>
-    // UTF-8 safe Base64 encode/decode
-    function encodeBase64(str) {
-        return btoa(unescape(encodeURIComponent(str)));
-    }
-    function decodeBase64(str) {
-        return decodeURIComponent(escape(atob(str)));
-    }
+/* UTF-8 safe Base64 encode/decode */
+function encodeBase64(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+}
+function decodeBase64(str) {
+    return decodeURIComponent(escape(atob(str)));
+}
 
-    const fields = ["item","origin","year","qty","unitPrice","amount",
-                    "bank","phone","name","rrn","farmId","date"];
+const fields = ["item","origin","year","qty","unitPrice","amount",
+                "bank","phone","name","rrn","farmId","date"];
 
-    // 입력 → 미리보기 동기화
-    fields.forEach(id => {
-        document.getElementById(id).addEventListener("input", () => {
-            document.getElementById("pv_" + id).innerText =
-                document.getElementById(id).value;
-        });
+/* 입력 미리보기 실시간 반영 */
+fields.forEach(id => {
+    document.getElementById(id).addEventListener("input", () => {
+        document.getElementById("pv_" + id).innerText =
+            document.getElementById(id).value;
     });
+});
 
-    // 서명 받기 URL 생성 (PC → 모바일)
-    function createSignURL() {
-        const data = {};
-        fields.forEach(id => data[id] = document.getElementById(id).value);
+/* PC 서명 캔버스 */
+const canvas = document.getElementById("pcSignCanvas");
+const ctx = canvas.getContext("2d");
+let drawing = false;
 
-        const encodedJson = encodeBase64(JSON.stringify(data));
-        const urlParam = encodeURIComponent(encodedJson);   // URL-safe
-        const url = `https://farm-confirmation-qwe.vercel.app/sign.html?data=${urlParam}`;
+function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+}
+resizeCanvas();
+window.addEventListener("resize", resizeCanvas);
 
-        navigator.clipboard.writeText(url).then(() => {
-            alert("서명용 URL이 복사되었습니다! 카카오톡 등으로 보내주세요.");
-        }).catch(() => {
-            const t = document.createElement("textarea");
-            t.value = url;
-            document.body.appendChild(t);
-            t.select();
-            document.execCommand("copy");
-            t.remove();
-            alert("서명용 URL이 복사되었습니다! (호환모드)");
-        });
+function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+canvas.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    drawing = true;
+    const p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+});
+
+canvas.addEventListener("pointermove", e => {
+    if (!drawing) return;
+    e.preventDefault();
+    const p = getPos(e);
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "black";
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+
+    // 미리보기 업데이트
+    document.getElementById("signPreview").src = canvas.toDataURL("image/png");
+});
+
+canvas.addEventListener("pointerup", () => drawing = false);
+canvas.addEventListener("pointerleave", () => drawing = false);
+
+/* 서명 지우기 */
+function clearPcSign() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById("signPreview").src = "";
+}
+
+/* 모바일 서명 받기 URL 생성 */
+function createSignURL() {
+    const data = {};
+    fields.forEach(id => data[id] = document.getElementById(id).value);
+
+    const encodedJson = encodeBase64(JSON.stringify(data));
+    const urlParam = encodeURIComponent(encodedJson);
+
+    const url = `https://farm-confirmation-qwe.vercel.app/sign.html?data=${urlParam}`;
+
+    navigator.clipboard.writeText(url).then(() => {
+        alert("서명용 URL이 복사되었습니다!");
+    });
+}
+
+/* 모바일에서 돌아온 서명 반영 */
+(function restore() {
+    const params = new URLSearchParams(location.search);
+
+    const sign = params.get("sign");
+    if (sign) {
+        document.getElementById("signPreview").src = sign;
     }
 
-    // 모바일에서 돌아온 URL(= data + sign)로 열렸을 때 값 채우기
-    (function restoreFromUrl() {
-        const urlParams = new URLSearchParams(location.search);
+    const raw = params.get("data");
+    if (!raw) return;
 
-        // 서명 이미지
-        const sign = urlParams.get("sign");
-        if (sign) {
-            document.getElementById("signPreview").src = sign;
-        }
+    try {
+        const json = decodeBase64(decodeURIComponent(raw));
+        const data = JSON.parse(json);
 
-        // 데이터 복구
-        const rawData = urlParams.get("data");
-        if (!rawData) return;
-
-        try {
-            const base64 = decodeURIComponent(rawData);
-            const jsonStr = decodeBase64(base64);
-            const data = JSON.parse(jsonStr);
-
-            fields.forEach(id => {
-                if (data[id] !== undefined) {
-                    document.getElementById(id).value = data[id];
-                    document.getElementById("pv_" + id).innerText = data[id];
-                }
-            });
-        } catch (e) {
-            console.error("URL 데이터 복구 실패", e);
-        }
-    })();
+        fields.forEach(id => {
+            if (data[id]) {
+                document.getElementById(id).value = data[id];
+                document.getElementById("pv_" + id).innerText = data[id];
+            }
+        });
+    } catch(e) {
+        console.error(e);
+    }
+})();
 </script>
 
 </body>
