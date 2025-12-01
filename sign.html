@@ -6,16 +6,66 @@
 <title>서명 입력</title>
 
 <style>
-    body{font-family:Arial;background:#f5f5f5;margin:0;padding:20px;}
-    .box{max-width:600px;margin:0 auto;background:white;padding:20px;border-radius:10px;}
-    .title{text-align:center;font-size:22px;font-weight:bold;margin:0 0 20px 0;}
-    h3{margin-top:25px;}
-    #signCanvas{width:100%;height:220px;border:1px solid #aaa;background:#fff;touch-action:none;}
-    button{width:100%;padding:12px;margin-top:12px;border-radius:6px;border:none;font-size:16px;cursor:pointer;}
-    .blue-btn{background:#3b82f6;color:white;}
-    .gray-btn{background:#e5e7eb;color:#111;}
-    .info-line{margin:6px 0;font-size:15px;}
-    #msg{margin-top:10px;color:green;font-weight:bold;text-align:center;}
+    body {
+        font-family: Arial, sans-serif;
+        background:#f5f5f5;
+        margin:0;
+        padding:20px;
+    }
+    .box {
+        max-width:600px;
+        margin:0 auto;
+        background:white;
+        border-radius:10px;
+        padding:20px;
+        box-sizing:border-box;
+    }
+    .title {
+        text-align:center;
+        font-size:22px;
+        font-weight:bold;
+        margin:0 0 20px;
+    }
+    .info-line {
+        font-size:15px;
+        margin:6px 0;
+    }
+    h3 {
+        margin-top:25px;
+        margin-bottom:8px;
+    }
+    #signCanvas {
+        width:100%;
+        height:220px;
+        border:1px solid #aaa;
+        background:#fff;
+        touch-action:none;
+        box-sizing:border-box;
+    }
+    button {
+        width:100%;
+        padding:12px;
+        margin-top:12px;
+        border-radius:6px;
+        border:none;
+        font-size:16px;
+        cursor:pointer;
+    }
+    .blue-btn {
+        background:#3b82f6;
+        color:white;
+    }
+    .gray-btn {
+        background:#e5e7eb;
+        color:#111827;
+    }
+    #msg {
+        margin-top:10px;
+        text-align:center;
+        font-size:15px;
+        color:green;
+        font-weight:bold;
+    }
 </style>
 </head>
 
@@ -36,91 +86,129 @@
 </div>
 
 <script>
-function decode(str){
-    return JSON.parse(decodeURIComponent(escape(atob(str))));
+/* --- Base64 helpers --- */
+function decodeBase64(data) {
+    try {
+        return JSON.parse(
+            decodeURIComponent(escape(atob(data)))
+        );
+    } catch (e) {
+        console.error("Base64 decode error:", e);
+        return {};
+    }
 }
 
-/* 데이터 표시 */
+/* --- 한글 라벨 매핑 --- */
+const labels = {
+    item: "품목",
+    origin: "원산지",
+    year: "생산년도",
+    qty: "판매량",
+    unitPrice: "판매단가",
+    amount: "금액",
+    bank: "입금계좌번호",
+    phone: "연락처",
+    name: "성명",
+    rrn: "주민등록번호",
+    farmId: "농업경영체등록번호",
+    date: "날짜"
+};
+
 let formData = {};
-(function loadData(){
+
+/* --- Index.html → 전달된 값 표시 --- */
+(function loadFormData(){
     const p = new URLSearchParams(window.location.search);
     const raw = p.get("data");
-    if(!raw) return;
-    formData = decode(raw);
 
+    if (!raw) return;
+
+    formData = decodeBase64(raw);
+
+    let html = "";
     const area = document.getElementById("infoArea");
-    let html="";
-    const labels={
-        item:"품목",origin:"원산지",year:"생산년도",qty:"판매량",unitPrice:"판매단가",
-        amount:"금액",bank:"입금계좌번호",phone:"연락처",name:"성명",
-        rrn:"주민등록번호",farmId:"농업경영체등록번호",date:"날짜"
-    };
 
-    for(const k in formData){
-        html += `<div class="info-line">* ${labels[k] || k} : ${formData[k]}</div>`;
+    for (const key in formData) {
+        html += `<div class="info-line">* ${labels[key] || key} : ${formData[key]}</div>`;
     }
+
     area.innerHTML = html;
 })();
 
-/* 캔버스 */
+/* --- Mobile 서명 캔버스 --- */
 const c = document.getElementById("signCanvas");
 const ctx = c.getContext("2d");
-let drawing=false;
+let drawing = false;
 
-function resize(){
-    const r = c.getBoundingClientRect();
-    c.width = r.width;
-    c.height = r.height;
-}
-resize();
-window.addEventListener("resize",resize);
-
-function pos(e){
-    const r = c.getBoundingClientRect();
-    return {x: e.clientX - r.left, y:e.clientY - r.top};
+function resizeCanvas(){
+    const rect = c.getBoundingClientRect();
+    c.width = rect.width;
+    c.height = rect.height;
 }
 
+/* 가장 안전한 타이밍에서 초기화 */
+window.addEventListener("load", resizeCanvas);
+window.addEventListener("resize", resizeCanvas);
+
+/* 위치 계산 */
+function getPos(e){
+    const r = c.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+/* 터치/펜/마우스 입력 */
 c.addEventListener("pointerdown", e=>{
-    drawing=true;
-    const p=pos(e);
+    drawing = true;
+    const p = getPos(e);
     ctx.beginPath();
-    ctx.moveTo(p.x,p.y);
+    ctx.moveTo(p.x, p.y);
 });
 c.addEventListener("pointermove", e=>{
-    if(!drawing) return;
-    const p=pos(e);
-    ctx.lineWidth=2;
-    ctx.lineCap="round";
-    ctx.strokeStyle="black";
-    ctx.lineTo(p.x,p.y);
+    if (!drawing) return;
+    const p = getPos(e);
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "black";
+    ctx.lineTo(p.x, p.y);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(p.x,p.y);
+    ctx.moveTo(p.x, p.y);
 });
-c.addEventListener("pointerup",()=>drawing=false);
-c.addEventListener("pointerleave",()=>drawing=false);
+c.addEventListener("pointerup", ()=> drawing = false);
+c.addEventListener("pointerleave", ()=> drawing = false);
 
 function clearMobileSign(){
     ctx.clearRect(0,0,c.width,c.height);
 }
 
-/* 서명 완료 */
+/* --- 서명 저장 후 PC 복귀 --- */
 function submitSign(){
-    const sign = c.toDataURL("image/png");
+    /* 투명 서명 방지 */
+    const blank = document.createElement("canvas");
+    blank.width = c.width;
+    blank.height = c.height;
 
-    localStorage.setItem("farm_temp_sign", sign);
+    if (c.toDataURL() === blank.toDataURL()) {
+        alert("서명이 없습니다. 서명 후 다시 눌러주세요.");
+        return;
+    }
+
+    const signData = c.toDataURL("image/png");
+
+    /* Index.html에서 복원하도록 저장 */
+    localStorage.setItem("farm_temp_sign", signData);
     localStorage.setItem("farm_temp_data", JSON.stringify(formData));
 
-    const backURL = window.location.origin + "/index.html?done=1";
+    const returnURL = window.location.origin + "/index.html?done=1";
 
-    navigator.clipboard.writeText(backURL)
+    navigator.clipboard.writeText(returnURL)
         .then(()=>{
             document.getElementById("msg").innerText =
-                "서명 완료! 이제 PC에서 index.html을 여시면 자동으로 복원됩니다.";
+                "서명 완료! PC에서 붙여넣으면 자동으로 반영됩니다.";
         })
         .catch(()=>{
             document.getElementById("msg").innerText =
-                "복사 실패. 주소창 URL을 직접 복사해 주세요.";
+                "복사 실패! 브라우저 주소창의 URL을 직접 복사해주세요.";
         });
 }
 </script>
