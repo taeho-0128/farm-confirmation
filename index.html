@@ -12,84 +12,86 @@
     body {
         font-family: Arial, sans-serif;
         background:#f5f5f5;
-        padding:20px;
+        padding:12px;
         margin:0;
     }
     .container {
         max-width:1200px;
         margin:0 auto;
         display:flex;
-        gap:20px;
+        gap:16px;
     }
     .box {
         background:white;
         border-radius:10px;
-        padding:20px;
+        padding:18px;
         flex:1;
         box-sizing:border-box;
     }
     .input-box h2 {
-        margin:0 0 20px 0;
+        margin:0 0 16px 0;
+        font-size:18px;
     }
     .input-box label {
         display:block;
-        margin-top:10px;
-        margin-bottom:4px;
-        font-size:14px;
+        margin-top:8px;
+        margin-bottom:3px;
+        font-size:13px;
         font-weight:bold;
     }
     .input-box input {
         width:100%;
-        padding:8px 10px;
+        padding:7px 9px;
         border-radius:6px;
         border:1px solid #ccc;
-        font-size:14px;
+        font-size:13px;
         box-sizing:border-box;
     }
 
     #pcSignCanvas {
         width:100%;
-        height:150px;
+        height:140px;
         border:1px solid #aaa;
         background:#fff;
-        margin-top:8px;
+        margin-top:6px;
         touch-action:none;
     }
 
     .title {
         text-align:center;
-        font-size:22px;
+        font-size:20px;
         font-weight:bold;
-        margin-bottom:25px;
+        margin:0 0 18px 0;
     }
     .preview p {
-        font-size:15px;
-        margin:8px 0;
+        font-size:14px;
+        margin:4px 0;
     }
 
     #signPreview {
-        width:250px;
-        height:120px;
+        width:240px;
+        height:110px;
         border:1px solid #ccc;
         background:#fff;
-        margin-top:6px;
-        margin-bottom: 4px;
+        margin-top:4px;
+        margin-bottom:3px;
     }
 
     .footer-line {
-        margin-top:10px;
+        margin-top:8px;
+        margin-bottom:0;
         font-weight:bold;
-        font-size:16px;
+        font-size:15px;
         text-align:center;
     }
 
     #buttons {
         text-align:center;
-        margin-top:20px;
+        margin-top:16px;
     }
     button {
-        padding:10px 16px;
-        margin:0 6px;
+        padding:9px 14px;
+        margin:0 5px;
         border-radius:6px;
         border:1px solid #ccc;
         background:white;
@@ -108,19 +110,19 @@
         }
     }
 
-    /* 인쇄 최적화 */
+    /* 인쇄 시 여백 최소화 */
     @media print {
         body, .container {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
+            margin:0 !important;
+            padding:0 !important;
+            background:white !important;
         }
         .input-box,
         #buttons {
             display:none !important;
         }
         .preview {
-            padding-bottom:0 !important;
+            padding:12px 18px 4px 18px !important;
         }
     }
 </style>
@@ -129,7 +131,7 @@
 <body>
 
 <div class="container">
-    <!-- LEFT SIDE: 입력 폼 -->
+    <!-- LEFT : 입력 폼 -->
     <div class="box input-box">
         <h2>입력 폼</h2>
 
@@ -146,12 +148,12 @@
         <label>농업경영체등록번호</label><input id="farmId">
         <label>날짜</label><input id="date">
 
-        <h3 style="margin-top:25px;">PC 서명</h3>
+        <h3 style="margin-top:18px; font-size:15px;">PC 서명</h3>
         <canvas id="pcSignCanvas"></canvas>
-        <button onclick="clearPcSign()">서명 지우기</button>
+        <button style="margin-top:6px;" onclick="clearPcSign()">서명 지우기</button>
     </div>
 
-    <!-- RIGHT SIDE: 미리보기 -->
+    <!-- RIGHT : 미리보기 / 실제 출력 영역 -->
     <div class="box preview" id="printArea">
         <div class="title">농산물 판매 확인서</div>
 
@@ -167,55 +169,57 @@
         <p>* 주민등록번호 : <span id="pv_rrn"></span></p>
         <p>* 농업경영체등록번호 : <span id="pv_farmId"></span></p>
 
-        <p style="margin:30px 0; text-align:center;">
+        <p style="margin:22px 0 18px; text-align:center;">
             위와 같이 판매하였음을 확인합니다.
         </p>
 
-        <p><b>서명</b></p>
+        <p style="margin-bottom:4px;"><b>서명</b></p>
         <img id="signPreview" alt="서명 이미지">
 
         <p class="footer-line">농업회사법인(주)원당에프앤디 귀중</p>
     </div>
 </div>
 
-<!-- BUTTONS -->
 <div id="buttons">
     <button onclick="saveImage()">사진 저장</button>
     <button onclick="window.print()">인쇄하기</button>
-    <button class="blue-btn" onclick="goSign()">서명 받기 URL 복사</button>
+    <button class="blue-btn" onclick="createSignURL()">서명 받기 URL 복사</button>
 </div>
 
 <script>
-/* 입력값 → 미리보기 실시간 반영 */
+/* --- Base64 helper --- */
+function encodeBase64(str){
+    return btoa(unescape(encodeURIComponent(str)));
+}
+function decodeBase64(str){
+    return decodeURIComponent(escape(atob(str)));
+}
+
+/* --- 입력 → 미리보기 --- */
 const fields = [
-    "item","origin","year","qty",
-    "unitPrice","amount","bank","phone",
-    "name","rrn","farmId","date"
+  "item","origin","year","qty",
+  "unitPrice","amount","bank","phone",
+  "name","rrn","farmId","date"
 ];
 
 fields.forEach(id => {
     const input = document.getElementById(id);
     input.addEventListener("input", () => {
-        document.getElementById("pv_" + id).innerText = input.value;
-        saveTemp();
+        const span = document.getElementById("pv_" + id);
+        if (span) span.innerText = input.value;
     });
 });
 
-/* 현재 입력값 저장 */
-function saveTemp(){
+/* 현재 입력값 모으기 */
+function collectData(){
     const data = {};
-    fields.forEach(id => data[id] = document.getElementById(id).value);
-    localStorage.setItem("farm_temp_data", JSON.stringify(data));
-}
-
-/* 현재 입력값 읽기 */
-function getInputs(){
-    const data = {};
-    fields.forEach(id => data[id] = document.getElementById(id).value);
+    fields.forEach(id => {
+        data[id] = document.getElementById(id).value || "";
+    });
     return data;
 }
 
-/* PC 서명 캔버스 */
+/* --- PC 서명 --- */
 const pcCanvas = document.getElementById("pcSignCanvas");
 const pcCtx = pcCanvas.getContext("2d");
 let drawing = false;
@@ -228,83 +232,100 @@ function resizePcCanvas(){
 resizePcCanvas();
 window.addEventListener("resize", resizePcCanvas);
 
-function pos(e){
-    const r = pcCanvas.getBoundingClientRect();
-    return {x: e.clientX - r.left, y: e.clientY - r.top};
+function getPcPos(e){
+    const rect = pcCanvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
-pcCanvas.addEventListener("pointerdown",e=>{
+pcCanvas.addEventListener("pointerdown", e => {
     drawing = true;
-    const p = pos(e);
+    const p = getPcPos(e);
     pcCtx.beginPath();
-    pcCtx.moveTo(p.x,p.y);
+    pcCtx.moveTo(p.x, p.y);
 });
 
-pcCanvas.addEventListener("pointermove",e=>{
-    if(!drawing) return;
-    const p = pos(e);
-    pcCtx.lineWidth=2;
-    pcCtx.lineCap="round";
-    pcCtx.strokeStyle="black";
-    pcCtx.lineTo(p.x,p.y);
+pcCanvas.addEventListener("pointermove", e => {
+    if (!drawing) return;
+    const p = getPcPos(e);
+    pcCtx.lineWidth = 2;
+    pcCtx.lineCap = "round";
+    pcCtx.strokeStyle = "black";
+    pcCtx.lineTo(p.x, p.y);
     pcCtx.stroke();
     pcCtx.beginPath();
-    pcCtx.moveTo(p.x,p.y);
+    pcCtx.moveTo(p.x, p.y);
 
-    document.getElementById("signPreview").src = pcCanvas.toDataURL();
-    localStorage.setItem("farm_temp_sign", pcCanvas.toDataURL());
+    // PC 서명도 미리보기 이미지에 반영
+    document.getElementById("signPreview").src =
+        pcCanvas.toDataURL("image/png");
 });
 
-pcCanvas.addEventListener("pointerup",()=>drawing=false);
-pcCanvas.addEventListener("pointerleave",()=>drawing=false);
+pcCanvas.addEventListener("pointerup", () => drawing = false);
+pcCanvas.addEventListener("pointerleave", () => drawing = false);
 
 function clearPcSign(){
-    pcCtx.clearRect(0,0,pcCanvas.width,pcCanvas.height);
+    pcCtx.clearRect(0, 0, pcCanvas.width, pcCanvas.height);
     document.getElementById("signPreview").src = "";
-    localStorage.removeItem("farm_temp_sign");
 }
 
-/* 서명 받기 URL 생성 */
-function goSign(){
-    const data = getInputs();
-    localStorage.setItem("farm_temp_data", JSON.stringify(data));
-
-    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
-    const url = window.location.origin + "/sign.html?data=" + encodeURIComponent(encoded);
+/* --- 서명 받기 URL 생성 (PC → 모바일) --- */
+function createSignURL(){
+    const payload = { data: collectData() };  // 입력값만 보냄
+    const encoded = encodeBase64(JSON.stringify(payload));
+    const url = window.location.origin + "/sign.html?pack=" +
+                encodeURIComponent(encoded);
 
     navigator.clipboard.writeText(url)
-        .then(()=>alert("서명용 URL이 복사되었습니다!"))
-        .catch(()=>alert("복사 실패. 직접 복사해주세요.\n"+url));
+        .then(() => alert("서명용 URL이 복사되었습니다!"))
+        .catch(() => alert("복사에 실패했습니다. 아래 주소를 직접 복사해 주세요.\n" + url));
 }
 
-/* 사진 저장 */
+/* --- 사진 저장 (미리보기 영역을 PNG로) --- */
 async function saveImage(){
     const area = document.getElementById("printArea");
-    const canvas = await html2canvas(area,{scale:2});
+    const canvas = await html2canvas(area, { scale: 2 });
+    const dataURL = canvas.toDataURL("image/png");
+
     const link = document.createElement("a");
-    link.href = canvas.toDataURL();
+    link.href = dataURL;
     link.download = "농산물_판매_확인서.png";
-    link.click();
+
+    // iOS Safari 대응
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+        window.open(dataURL);
+    } else {
+        link.click();
+    }
 }
 
-/* sign.html → index.html 복귀 후 자동 복원 */
-(function restore(){
+/* --- 모바일에서 돌아온 URL(pack) 복원 --- */
+(function restoreFromPack(){
     const params = new URLSearchParams(window.location.search);
+    const packRaw = params.get("pack");
+    if (!packRaw) return;
 
-    if(params.get("done")){
-        const saved = localStorage.getItem("farm_temp_data");
-        if(saved){
-            const data = JSON.parse(saved);
-            fields.forEach(id=>{
-                document.getElementById(id).value = data[id] || "";
-                document.getElementById("pv_"+id).innerText = data[id] || "";
-            });
-        }
+    try {
+        const jsonStr = decodeBase64(decodeURIComponent(packRaw));
+        const pack = JSON.parse(jsonStr);
 
-        const sign = localStorage.getItem("farm_temp_sign");
-        if(sign){
+        const data = pack.data || {};
+        const sign = pack.sign || "";
+
+        // 입력값 + 미리보기 복원
+        fields.forEach(id => {
+            if (data[id] !== undefined) {
+                document.getElementById(id).value = data[id];
+                const span = document.getElementById("pv_" + id);
+                if (span) span.innerText = data[id];
+            }
+        });
+
+        // 모바일 서명 이미지 복원
+        if (sign) {
             document.getElementById("signPreview").src = sign;
         }
+    } catch (e) {
+        console.error("pack decode error", e);
     }
 })();
 </script>

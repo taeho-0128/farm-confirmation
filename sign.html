@@ -10,29 +10,30 @@
         font-family: Arial, sans-serif;
         background:#f5f5f5;
         margin:0;
-        padding:20px;
+        padding:16px;
     }
     .box {
         max-width:600px;
         margin:0 auto;
         background:white;
         border-radius:10px;
-        padding:20px;
+        padding:18px;
         box-sizing:border-box;
     }
     .title {
         text-align:center;
-        font-size:22px;
+        font-size:20px;
         font-weight:bold;
-        margin:0 0 20px;
+        margin:0 0 16px 0;
     }
     .info-line {
-        font-size:15px;
-        margin:6px 0;
+        font-size:14px;
+        margin:4px 0;
     }
     h3 {
-        margin-top:25px;
-        margin-bottom:8px;
+        margin-top:18px;
+        margin-bottom:6px;
+        font-size:15px;
     }
     #signCanvas {
         width:100%;
@@ -44,11 +45,11 @@
     }
     button {
         width:100%;
-        padding:12px;
-        margin-top:12px;
+        padding:11px;
+        margin-top:10px;
         border-radius:6px;
         border:none;
-        font-size:16px;
+        font-size:15px;
         cursor:pointer;
     }
     .blue-btn {
@@ -62,7 +63,7 @@
     #msg {
         margin-top:10px;
         text-align:center;
-        font-size:15px;
+        font-size:14px;
         color:green;
         font-weight:bold;
     }
@@ -86,19 +87,15 @@
 </div>
 
 <script>
-/* --- Base64 helpers --- */
-function decodeBase64(data) {
-    try {
-        return JSON.parse(
-            decodeURIComponent(escape(atob(data)))
-        );
-    } catch (e) {
-        console.error("Base64 decode error:", e);
-        return {};
-    }
+/* Base64 helper */
+function decodeBase64(str){
+    return decodeURIComponent(escape(atob(str)));
+}
+function encodeBase64(str){
+    return btoa(unescape(encodeURIComponent(str)));
 }
 
-/* --- 한글 라벨 매핑 --- */
+/* 한글 라벨 매핑 */
 const labels = {
     item: "품목",
     origin: "원산지",
@@ -116,54 +113,57 @@ const labels = {
 
 let formData = {};
 
-/* --- Index.html → 전달된 값 표시 --- */
-(function loadFormData(){
-    const p = new URLSearchParams(window.location.search);
-    const raw = p.get("data");
+/* index.html에서 온 pack 읽기 (data만 있음) */
+(function readPack(){
+    const params = new URLSearchParams(window.location.search);
+    const packRaw = params.get("pack");
+    if (!packRaw) return;
 
-    if (!raw) return;
-
-    formData = decodeBase64(raw);
-
-    let html = "";
-    const area = document.getElementById("infoArea");
-
-    for (const key in formData) {
-        html += `<div class="info-line">* ${labels[key] || key} : ${formData[key]}</div>`;
+    try {
+        const jsonStr = decodeBase64(decodeURIComponent(packRaw));
+        const pack = JSON.parse(jsonStr);
+        formData = pack.data || {};
+    } catch(e){
+        console.error("pack decode error", e);
+        formData = {};
     }
 
-    area.innerHTML = html;
+    const infoArea = document.getElementById("infoArea");
+    let html = "";
+    for (const key in formData) {
+        const label = labels[key] || key;
+        const value = formData[key];
+        html += `<div class="info-line">* ${label} : ${value}</div>`;
+    }
+    infoArea.innerHTML = html;
 })();
 
-/* --- Mobile 서명 캔버스 --- */
-const c = document.getElementById("signCanvas");
-const ctx = c.getContext("2d");
+/* 모바일 서명 캔버스 */
+const canvas = document.getElementById("signCanvas");
+const ctx = canvas.getContext("2d");
 let drawing = false;
+let hasDrawn = false;
 
 function resizeCanvas(){
-    const rect = c.getBoundingClientRect();
-    c.width = rect.width;
-    c.height = rect.height;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
 }
-
-/* 가장 안전한 타이밍에서 초기화 */
-window.addEventListener("load", resizeCanvas);
+resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
-/* 위치 계산 */
 function getPos(e){
-    const r = c.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
-/* 터치/펜/마우스 입력 */
-c.addEventListener("pointerdown", e=>{
+canvas.addEventListener("pointerdown", e => {
     drawing = true;
     const p = getPos(e);
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
 });
-c.addEventListener("pointermove", e=>{
+canvas.addEventListener("pointermove", e => {
     if (!drawing) return;
     const p = getPos(e);
     ctx.lineWidth = 2;
@@ -173,42 +173,43 @@ c.addEventListener("pointermove", e=>{
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
+    hasDrawn = true;
 });
-c.addEventListener("pointerup", ()=> drawing = false);
-c.addEventListener("pointerleave", ()=> drawing = false);
+canvas.addEventListener("pointerup", () => drawing = false);
+canvas.addEventListener("pointerleave", () => drawing = false);
 
 function clearMobileSign(){
-    ctx.clearRect(0,0,c.width,c.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasDrawn = false;
 }
 
-/* --- 서명 저장 후 PC 복귀 --- */
+/* 서명 완료 → pack 생성 → index.html URL 복사 */
 function submitSign(){
-    /* 투명 서명 방지 */
-    const blank = document.createElement("canvas");
-    blank.width = c.width;
-    blank.height = c.height;
-
-    if (c.toDataURL() === blank.toDataURL()) {
+    if (!hasDrawn) {
         alert("서명이 없습니다. 서명 후 다시 눌러주세요.");
         return;
     }
 
-    const signData = c.toDataURL("image/png");
+    const signDataURL = canvas.toDataURL("image/png");
 
-    /* Index.html에서 복원하도록 저장 */
-    localStorage.setItem("farm_temp_sign", signData);
-    localStorage.setItem("farm_temp_data", JSON.stringify(formData));
+    const pack = {
+        data: formData,
+        sign: signDataURL
+    };
 
-    const returnURL = window.location.origin + "/index.html?done=1";
+    const encoded = encodeBase64(JSON.stringify(pack));
+    const returnURL =
+        window.location.origin + "/index.html?pack=" +
+        encodeURIComponent(encoded);
 
     navigator.clipboard.writeText(returnURL)
-        .then(()=>{
+        .then(() => {
             document.getElementById("msg").innerText =
-                "서명 완료! PC에서 붙여넣으면 자동으로 반영됩니다.";
+                "서명 완료! 복사된 URL을 PC에서 붙여넣으면 서명이 반영됩니다.";
         })
-        .catch(()=>{
+        .catch(() => {
             document.getElementById("msg").innerText =
-                "복사 실패! 브라우저 주소창의 URL을 직접 복사해주세요.";
+                "클립보드 복사에 실패했습니다. 브라우저 주소창의 URL을 직접 복사해 주세요.";
         });
 }
 </script>
