@@ -49,6 +49,10 @@
         margin-top:5px;
         background:white;
     }
+    #buttons {
+        margin-top:20px;
+        text-align:center; /* 가운데 정렬 */
+    }
     button {
         padding:12px 16px;
         font-size:14px;
@@ -121,13 +125,21 @@
 </div>
 
 <!-- Buttons -->
-<div id="buttons" style="margin-top:20px;">
+<div id="buttons">
     <button onclick="window.print()">인쇄하기</button>
     <button class="blue-btn" onclick="createSignURL()">서명 받기 URL 복사</button>
 </div>
 
 <script>
-    // 실시간 미리보기
+    /* 안전한 Base64 인코딩/디코딩 */
+    function encodeBase64(str) {
+        return btoa(unescape(encodeURIComponent(str)));
+    }
+    function decodeBase64(str) {
+        return decodeURIComponent(escape(atob(str)));
+    }
+
+    /* 실시간 미리보기 */
     const fields = ["item","origin","year","qty","unitPrice","amount","bank","phone","name","rrn","farmId","date"];
     fields.forEach(id => {
         document.getElementById(id).addEventListener("input", () => {
@@ -136,19 +148,28 @@
         });
     });
 
-    // 서명 URL 생성
+    /* URL 생성 + 클립보드 복사 */
     function createSignURL() {
         const data = {};
         fields.forEach(id => data[id] = document.getElementById(id).value);
 
-        const encoded = btoa(JSON.stringify(data));
+        const encoded = encodeBase64(JSON.stringify(data));
         const url = `https://farm-confirmation-qwe.vercel.app/sign.html?data=${encoded}`;
 
-        navigator.clipboard.writeText(url);
-        alert("서명 URL이 복사되었습니다!");
+        navigator.clipboard.writeText(url).then(() => {
+            alert("서명 URL이 복사되었습니다!");
+        }).catch(() => {
+            const t = document.createElement("textarea");
+            t.value = url;
+            document.body.appendChild(t);
+            t.select();
+            document.execCommand("copy");
+            t.remove();
+            alert("서명 URL이 복사되었습니다! (호환모드)");
+        });
     }
 
-    // sign.html에서 돌아온 서명 적용
+    /* sign.html에서 돌아온 서명 표시 */
     const urlParams = new URLSearchParams(location.search);
     const sign = urlParams.get("sign");
     if (sign) {
