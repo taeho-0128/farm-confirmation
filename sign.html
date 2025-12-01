@@ -25,8 +25,8 @@
         margin-bottom:20px;
     }
     .info-line {
-        font-size:15px;
-        margin:6px 0;
+        font-size:16px;
+        margin:8px 0;
     }
     #signCanvas {
         width:100%;
@@ -45,12 +45,13 @@
         border:none;
         border-radius:6px;
         font-size:16px;
+        cursor:pointer;
     }
     #msg {
         color:green;
         text-align:center;
-        margin-top:10px;
         font-size:16px;
+        margin-top:10px;
         font-weight:bold;
     }
 </style>
@@ -72,71 +73,78 @@
 </div>
 
 <script>
-/* Base64 Safe Encode/Decode */
-function encodeBase64(str) {
-    return btoa(unescape(encodeURIComponent(str)));
-}
-function decodeBase64(str) {
-    return decodeURIComponent(escape(atob(str)));
-}
+/* Base64 Safe Encoding */
+function encodeBase64(str){ return btoa(unescape(encodeURIComponent(str))); }
+function decodeBase64(str){ return decodeURIComponent(escape(atob(str))); }
 
-/* 1) URL에서 data 추출 */
+/* 한글 라벨 매핑 */
+const labels = {
+    item: "품목",
+    origin: "원산지",
+    year: "생산년도",
+    qty: "판매량",
+    unitPrice: "판매단가",
+    amount: "금액",
+    bank: "입금계좌번호",
+    phone: "연락처",
+    name: "성명",
+    rrn: "주민등록번호",
+    farmId: "농업경영체등록번호",
+    date: "날짜"
+};
+
+/* URL에서 데이터 읽기 */
 const params = new URLSearchParams(location.search);
-const rawData = params.get("data");
-
 let formData = {};
 
-if (rawData) {
+if (params.get("data")) {
     try {
-        const jsonStr = decodeBase64(decodeURIComponent(rawData));
-        formData = JSON.parse(jsonStr);
+        formData = JSON.parse(decodeBase64(decodeURIComponent(params.get("data"))));
     } catch (e) {
         console.error("decode error", e);
     }
 }
 
-/* 2) 화면에 기존 입력값 보여주기 */
+/* 데이터 한국어 라벨로 표시 */
 function renderInfo() {
     const infoDiv = document.getElementById("infoArea");
-
-    if (!formData) {
-        infoDiv.innerHTML = "<p>데이터 없음</p>";
-        return;
-    }
-
     let html = "";
-    for (const k in formData) {
-        html += `<div class="info-line">* ${k} : ${formData[k]}</div>`;
+
+    for (const key in formData) {
+        const label = labels[key] || key;
+        html += `<div class="info-line">* ${label} : ${formData[key]}</div>`;
     }
+
     infoDiv.innerHTML = html;
 }
 renderInfo();
 
-/* 3) 서명 캔버스 */
+/* 서명 캔버스 */
 const canvas = document.getElementById("signCanvas");
 const ctx = canvas.getContext("2d");
 let drawing = false;
 
-function resizeCanvas() {
-    const r = canvas.getBoundingClientRect();
-    canvas.width = r.width;
-    canvas.height = r.height;
+function resizeCanvas(){
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
 }
 resizeCanvas();
 window.addEventListener("resize", resizeCanvas);
 
-function getPos(e) {
+function getPos(e){
     const rect = canvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    return {x: e.clientX - rect.left, y:e.clientY - rect.top};
 }
 
-canvas.addEventListener("pointerdown", e => {
-    drawing = true;
+canvas.addEventListener("pointerdown", e=>{
+    drawing=true;
     const p = getPos(e);
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
 });
-canvas.addEventListener("pointermove", e => {
+
+canvas.addEventListener("pointermove", e=>{
     if (!drawing) return;
     const p = getPos(e);
     ctx.lineWidth = 2;
@@ -147,24 +155,23 @@ canvas.addEventListener("pointermove", e => {
     ctx.beginPath();
     ctx.moveTo(p.x, p.y);
 });
-canvas.addEventListener("pointerup", () => drawing = false);
-canvas.addEventListener("pointerleave", () => drawing = false);
 
-/* 4) 서명 완료 처리 */
-function submitSign() {
-    const signDataURL = canvas.toDataURL("image/png");
+canvas.addEventListener("pointerup", ()=> drawing=false);
+canvas.addEventListener("pointerleave", ()=> drawing=false);
 
-    // 기존 입력값 + 서명 포함한 최종 패키지 생성
+/* 서명 완료 */
+function submitSign(){
+    const signData = canvas.toDataURL("image/png");
+
     const pack = {
         data: formData,
-        sign: signDataURL
+        sign: signData
     };
 
     const encoded = encodeBase64(JSON.stringify(pack));
-
     const returnURL = `https://farm-confirmation-qwe.vercel.app/index.html?pack=${encodeURIComponent(encoded)}`;
 
-    navigator.clipboard.writeText(returnURL).then(() => {
+    navigator.clipboard.writeText(returnURL).then(()=>{
         document.getElementById("msg").innerText =
             "서명이 완료되었습니다. URL이 복사되었습니다!";
     });

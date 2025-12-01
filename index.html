@@ -5,14 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>농산물 판매 확인서</title>
 
-<!-- 사진 저장 기능 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
     body {
         font-family: Arial, sans-serif;
         background:#f5f5f5;
-        margin:0;
         padding:20px;
     }
     .container {
@@ -35,65 +33,57 @@
         border-radius:6px;
         font-size:15px;
     }
-
     #pcSignCanvas {
         width:100%;
         height:150px;
         border:1px solid #aaa;
         background:white;
-        touch-action:none;
         margin-top:5px;
+        touch-action:none;
     }
-
     .title {
         text-align:center;
         font-size:22px;
         font-weight:bold;
-        margin-bottom:30px;
+        margin-bottom:20px;
     }
     .preview p {
-        font-size:15px;
         margin:10px 0;
+        font-size:15px;
     }
-    .sign-preview {
+    #signPreview {
         width:250px;
         height:120px;
-        border:1px solid #ddd;
+        border:1px solid #ccc;
+        margin-top:5px;
         background:white;
     }
-    .footer-line {
-        margin-top:40px;
-        text-align:center;
-        font-weight:bold;
-        font-size:16px;
-    }
-
     #buttons {
-        margin-top:20px;
         text-align:center;
+        margin-top:20px;
     }
     button {
         padding:12px 16px;
         margin:0 6px;
-        border-radius:6px;
-        border:1px solid #ccc;
         background:white;
+        border:1px solid #ccc;
+        border-radius:6px;
         cursor:pointer;
     }
     .blue-btn {
         background:#3b82f6;
-        color:white;
         border:none;
+        color:white;
     }
-
+    @media (max-width:900px) {
+        .container { flex-direction:column; }
+    }
     @media print {
-        .input-box, #buttons { display:none; }
+        .input-box, #buttons {
+            display:none;
+        }
         body { background:white; }
         .container { display:block; }
-    }
-
-    @media (max-width: 900px) {
-        .container { flex-direction:column; }
     }
 </style>
 </head>
@@ -119,11 +109,9 @@
         <label>농업경영체등록번호</label><input id="farmId">
         <label>날짜</label><input id="date">
 
-        <br><br>
-
-        <h3>PC 서명</h3>
+        <h3 style="margin-top:30px;">PC 서명</h3>
         <canvas id="pcSignCanvas"></canvas>
-        <button onclick="clearPcSign()">서명 지우기</button>
+        <button onclick="clearPcSign()" style="margin-top:10px;">서명 지우기</button>
     </div>
 
     <!-- RIGHT: 미리보기 -->
@@ -142,17 +130,18 @@
         <p>* 주민등록번호 : <span id="pv_rrn"></span></p>
         <p>* 농업경영체등록번호 : <span id="pv_farmId"></span></p>
 
-        <div style="margin:40px 0; text-align:center;">위와 같이 판매하였음을 확인합니다.</div>
+        <p style="margin:40px 0; text-align:center;">위와 같이 판매하였음을 확인합니다.</p>
 
         <p><b>서명</b></p>
-        <img id="signPreview" class="sign-preview">
+        <img id="signPreview">
 
-        <div class="footer-line">농업회사법인(주)원당에프앤디 귀중</div>
+        <p style="text-align:center; margin-top:40px; font-weight:bold;">
+            농업회사법인(주)원당에프앤디 귀중
+        </p>
     </div>
 
 </div>
 
-<!-- BUTTONS -->
 <div id="buttons">
     <button onclick="saveImage()">사진 저장</button>
     <button onclick="window.print()">인쇄하기</button>
@@ -160,13 +149,12 @@
 </div>
 
 <script>
-/* Base64 안전 처리 */
+/* Base64 Safe */
 function encodeBase64(str){ return btoa(unescape(encodeURIComponent(str))); }
 function decodeBase64(str){ return decodeURIComponent(escape(atob(str))); }
 
+/* 입력 → 미리보기 */
 const fields = ["item","origin","year","qty","unitPrice","amount","bank","phone","name","rrn","farmId","date"];
-
-/* 입력→미리보기 */
 fields.forEach(id=>{
     document.getElementById(id).addEventListener("input",()=>{
         document.getElementById("pv_"+id).innerText = document.getElementById(id).value;
@@ -195,9 +183,8 @@ canvas.addEventListener("pointerdown",e=>{
     drawing=true;
     const p=pos(e);
     ctx.beginPath();
-    ctx.moveTo(p.x,p.y);
+    ctx.moveTo(p.x, p.y);
 });
-
 canvas.addEventListener("pointermove",e=>{
     if(!drawing) return;
     const p=pos(e);
@@ -208,15 +195,15 @@ canvas.addEventListener("pointermove",e=>{
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(p.x,p.y);
+
     document.getElementById("signPreview").src = canvas.toDataURL();
 });
-
 canvas.addEventListener("pointerup",()=>drawing=false);
 canvas.addEventListener("pointerleave",()=>drawing=false);
 
 function clearPcSign(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
-    document.getElementById("signPreview").src="";
+    document.getElementById("signPreview").src = "";
 }
 
 /* 서명 URL 생성 */
@@ -243,7 +230,7 @@ async function saveImage(){
     link.click();
 }
 
-/* pack 복원 기능 — 여기서 진짜 완성됨 */
+/* 🔥 pack 복원 (모바일 서명 완료 후 PC에서 돌아왔을 때 수행) */
 (function restoreFromPack(){
     const params = new URLSearchParams(location.search);
     const packRaw = params.get("pack");
@@ -256,7 +243,6 @@ async function saveImage(){
         const data = pack.data;
         const sign = pack.sign;
 
-        // 입력값 복원
         fields.forEach(id=>{
             if(data[id]){
                 document.getElementById(id).value = data[id];
@@ -264,7 +250,6 @@ async function saveImage(){
             }
         });
 
-        // 서명 복원
         if(sign){
             document.getElementById("signPreview").src = sign;
         }
