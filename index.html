@@ -12,21 +12,18 @@
         margin:0;
         padding:20px;
     }
-
     .container {
         max-width:1200px;
         margin:0 auto;
         display:flex;
         gap:20px;
     }
-
     .box {
         background:white;
         border-radius:10px;
         padding:20px;
         flex:1;
     }
-
     .input-box input {
         width:100%;
         padding:10px;
@@ -35,49 +32,41 @@
         border-radius:6px;
         font-size:15px;
     }
-
     .title {
         text-align:center;
         font-size:22px;
         font-weight:bold;
         margin-bottom:30px;
     }
-
     .preview p {
         font-size:15px;
         margin:10px 0;
     }
-
-    .label {
-        font-weight:bold;
-    }
-
     .sign-preview {
         width:250px;
         height:120px;
         border:1px solid #ddd;
         margin-top:5px;
+        background:white;
     }
-
     button {
-        width:100%;
-        padding:14px;
-        font-size:16px;
+        padding:12px 16px;
+        font-size:14px;
+        border-radius:6px;
+        border:1px solid #ccc;
+        background:white;
+        cursor:pointer;
+        margin-right:10px;
+    }
+    .blue-btn {
         background:#3b82f6;
         color:white;
         border:none;
-        border-radius:8px;
-        margin-top:20px;
-        cursor:pointer;
     }
-
-    button:hover { background:#2563eb; }
-
     @media print {
+        .input-box, #buttons { display:none; }
         body { background:white; }
-        .input-box, #generateURL { display:none; }
         .container { display:block; }
-        .box { border:none; }
     }
 </style>
 </head>
@@ -90,40 +79,18 @@
     <div class="box input-box">
         <h2>입력 폼</h2>
 
-        <label>품목</label>
-        <input id="item">
-
-        <label>원산지</label>
-        <input id="origin">
-
-        <label>생산년도</label>
-        <input id="year">
-
-        <label>판매량</label>
-        <input id="qty">
-
-        <label>판매단가</label>
-        <input id="unitPrice">
-
-        <label>금액</label>
-        <input id="amount">
-
-        <label>입금계좌번호</label>
-        <input id="bank">
-
-        <label>성명</label>
-        <input id="name">
-
-        <label>주민등록번호</label>
-        <input id="rrn">
-
-        <label>농업경영체등록번호</label>
-        <input id="farmId">
-
-        <label>날짜</label>
-        <input id="date" placeholder="예: 2025년 3월 21일">
-
-        <button id="generateURL" onclick="createSignURL()">서명 받기 URL 복사</button>
+        <label>품목</label><input id="item">
+        <label>원산지</label><input id="origin">
+        <label>생산년도</label><input id="year">
+        <label>판매량</label><input id="qty">
+        <label>판매단가</label><input id="unitPrice">
+        <label>금액</label><input id="amount">
+        <label>입금계좌번호</label><input id="bank">
+        <label>연락처</label><input id="phone">
+        <label>성명</label><input id="name">
+        <label>주민등록번호</label><input id="rrn">
+        <label>농업경영체등록번호</label><input id="farmId">
+        <label>날짜</label><input id="date">
     </div>
 
     <!-- RIGHT: 미리보기 -->
@@ -137,30 +104,31 @@
         <p>* 판매단가 : <span id="pv_unitPrice"></span></p>
         <p>* 금액 : <span id="pv_amount"></span></p>
         <p>* 입금계좌번호 : <span id="pv_bank"></span></p>
+        <p>* 연락처 : <span id="pv_phone"></span></p>
         <p>* 성명 : <span id="pv_name"></span></p>
         <p>* 주민등록번호 : <span id="pv_rrn"></span></p>
         <p>* 농업경영체등록번호 : <span id="pv_farmId"></span></p>
 
-        <div style="margin:40px 0; text-align:center;">
-            위와 같이 판매하였음을 확인합니다.
-        </div>
-
+        <div style="margin:40px 0; text-align:center;">위와 같이 판매하였음을 확인합니다.</div>
         <div style="text-align:right; margin-bottom:30px;">
             <span id="pv_date"></span>
         </div>
 
-        <p class="label">서명</p>
+        <p><b>서명</b></p>
         <img id="signPreview" class="sign-preview" />
-
-        <button onclick="window.print()">인쇄하기</button>
     </div>
+
+</div>
+
+<!-- Buttons -->
+<div id="buttons" style="margin-top:20px;">
+    <button onclick="window.print()">인쇄하기</button>
+    <button class="blue-btn" onclick="createSignURL()">서명 받기 URL 복사</button>
 </div>
 
 <script>
-    const fields = ["item","origin","year","qty","unitPrice","amount",
-                    "bank","name","rrn","farmId","date"];
-
-    // 실시간 미리보기 반영
+    // 실시간 미리보기
+    const fields = ["item","origin","year","qty","unitPrice","amount","bank","phone","name","rrn","farmId","date"];
     fields.forEach(id => {
         document.getElementById(id).addEventListener("input", () => {
             document.getElementById("pv_" + id).innerText =
@@ -168,22 +136,21 @@
         });
     });
 
-    // URL 생성
+    // 서명 URL 생성
     function createSignURL() {
         const data = {};
         fields.forEach(id => data[id] = document.getElementById(id).value);
-        const encoded = btoa(JSON.stringify(data));
 
-        const url = `${location.origin}${location.pathname.replace("index.html","")}sign.html?data=${encoded}`;
+        const encoded = btoa(JSON.stringify(data));
+        const url = `https://farm-confirmation-qwe.vercel.app/sign.html?data=${encoded}`;
 
         navigator.clipboard.writeText(url);
-        alert("서명 받기 URL이 복사되었습니다!");
+        alert("서명 URL이 복사되었습니다!");
     }
 
-    // 서명 이미지 반영
-    const url = new URLSearchParams(location.search);
-    const sign = url.get("sign");
-
+    // sign.html에서 돌아온 서명 적용
+    const urlParams = new URLSearchParams(location.search);
+    const sign = urlParams.get("sign");
     if (sign) {
         document.getElementById("signPreview").src = sign;
     }
